@@ -1,5 +1,6 @@
 from fdds.fdd import fdd
 from fdds.helpers import parser
+from fdds.helpers import server
 import argparse
 import sys
 import signal
@@ -13,21 +14,32 @@ executeQueryHelpString = "Executes the given query on the integrated system"
 helpHelpString = "Prints summary of all available commands"
 exitHelpString = "Exits duh!"
 
+db = fdd()
+psr = parser()
+
 def fDispServer(args):
+	db.displayServers()
 	pass
 
 def fAddServer(args):
+	userver = psr.createServerFromArgs(args)
+	db.addServer(userver)
 	pass
 	#wf
 
 def fDelServer(args):
+	userver = psr.createServerFromArgs(args)
+	db.deleteServer(userver)
 	pass
 	#sac
 
 def fHelp(args):
-	parser.print_help()
+	cmdparser.print_help()
 
 def fExecuteQuery(args):
+	# get string from args
+	qstr = ""
+	db.executeQuery(qstr)
 	pass
 	#usbv
 
@@ -46,9 +58,9 @@ def sigHandler(signum, frame):
 	if signum == signal.SIGINT:
 		fExit("Signal")
 
-# parser funcs
-parser = argparse.ArgumentParser(description=APPLICATION_NAME, prog='', add_help=False)
-subparsers = parser.add_subparsers()
+# cmdparser funcs
+cmdparser = argparse.ArgumentParser(description=APPLICATION_NAME, prog='', add_help=False)
+subparsers = cmdparser.add_subparsers()
 
 dispServerParse = subparsers.add_parser('dispServer', description=dispServerHelpString)
 dispServerParse.set_defaults(func=fDispServer)
@@ -78,12 +90,12 @@ exitParse = subparsers.add_parser('exit', description=exitHelpString)
 exitParse.set_defaults(func=fExit)
 
 def main():
-	parser.print_help()
+	cmdparser.print_help()
 	signal.signal(signal.SIGINT, sigHandler)
 	while True:
 		cmd_string = input("fdds$ ")
 		try:
-			args = parser.parse_args(cmd_string.split(' '))
+			args = cmdparser.parse_args(cmd_string.split(' '))
 			args.func(args)
 		except SystemExit as s:
 			fExit("SystemExit")
