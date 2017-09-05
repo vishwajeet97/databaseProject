@@ -24,6 +24,7 @@ class QueryDeploy(threading.Thread):
 		super(QueryDeploy, self).__init__()
 		# self.callback = arg
 		self.site = site
+		self.query = query
 
 	def run():
 		# run the query
@@ -34,8 +35,12 @@ class QueryDeploy(threading.Thread):
 				user=site["username"],
 				password=site["password"]
 				) as conn:
-			pass
-		# self.rs = resultFromQuery
+			try:
+				resultSet = conn.execute(query)
+			except ppg.Error as e:
+				raise e
+		# return resultSet
+		self.rs = resultSet
 
 	def join():
 		super(QueryDeploy, self).join()
