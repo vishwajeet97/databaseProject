@@ -39,12 +39,18 @@ class fdd(object):
 		# combine the results
 		# display the results
 
-		for key, site in self.site_dict.items():
-			s = QueryDeploy(site, qString)
+		# save QueryDeploy objects in array
+		list_s = []
+		for key, server in self.site_dict.items():
+			s = QueryDeploy(server, qString)
+			list_s.append(s)
 			s.start()
+
+		for s in list_s:
 			res = s.join()
 			print(res)
-			# take union of resultsets
+			
+		# take union of resultsets
 
 
 		pass
