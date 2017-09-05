@@ -1,6 +1,5 @@
 from fdds.fdd import fdd
 from fdds.helpers import parser
-from fdds.helpers import server
 import argparse
 import sys
 import signal
@@ -68,9 +67,9 @@ addServerParse = subparsers.add_parser('addServer', description=addServerHelpStr
 addServerParse.set_defaults(func=fAddServer)
 addServerParse.add_argument('host')
 addServerParse.add_argument('port')
+addServerParse.add_argument('database')
 addServerParse.add_argument('username')
 addServerParse.add_argument('password')
-addServerParse.add_argument('database')
 
 delServerParse = subparsers.add_parser('delServer', description=delServerHelpString)
 delServerParse.set_defaults(func=fDelServer)

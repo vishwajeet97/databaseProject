@@ -1,3 +1,4 @@
 aenum==2.0.8
 pg-query==0.12
 psycopg2==2.7.3
+tabulate==0.7.7

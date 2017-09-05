@@ -7,20 +7,20 @@ class parser(object):
 	def __init__(self):
 		super(parser, self).__init__()
 
-	def createServerFromArgs(args):
+	def createServerFromArgs(self, args):
 		userver = {}
 		# parse the args and create a server object and return
 		userver["host"] = args.host
 		userver["port"] = args.port
 		userver["database"] = args.database
-		if args.username is not None:
+		if hasattr(args, "username") and hasattr(args, "password"):
 			userver["username"] = args.username
 			userver["password"] = args.password
 		return userver
 
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""
-	def __init__(self, site):
+	def __init__(self, site, query):
 		super(QueryDeploy, self).__init__()
 		# self.callback = arg
 		self.site = site
@@ -34,7 +34,7 @@ class QueryDeploy(threading.Thread):
 				user=site["username"],
 				password=site["password"]
 				) as conn:
-
+			pass
 		# self.rs = resultFromQuery
 
 	def join():
