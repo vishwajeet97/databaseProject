@@ -2,8 +2,6 @@ import pg_query
 from tabulate import tabulate
 from .helpers import QueryDeploy
 
-from .helpers import server
-
 class fdd(object):
 	"""docstring for fdd"""
 	def __init__(self):
@@ -14,8 +12,8 @@ class fdd(object):
 
 	def displayServers(self):
 		# prints the list of sites included in the system
-		table = [[server["host"], server["port"], server["database"]] for key, server in self.site_dict.items()]
-		print(tabulate(table, headers=["Host", "Port", "Database"], tablefmt="psql"))
+		table = [[server["host"], server["port"], server["database"], server["username"], server["password"]] for key, server in self.site_dict.items()]
+		print(tabulate(table, headers=["Host", "Port", "Database", "Username", "Password"], tablefmt="psql"))
 
 	def addServer(self, userver):
 		# add server to the list of sites
@@ -41,8 +39,8 @@ class fdd(object):
 		# combine the results
 		# display the results
 
-		for key, server in self.site_dict.items():
-			s = QueryDeploy(server, qString)
+		for key, site in self.site_dict.items():
+			s = QueryDeploy(site, qString)
 			s.start()
 			res = s.join()
 			print(res)

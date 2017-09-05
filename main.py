@@ -16,6 +16,12 @@ exitHelpString = "Exits duh!"
 db = fdd()
 psr = parser()
 
+def getStringFromArray(arg):
+	st = ""
+	for i in arg:
+		st += i + " "
+	return st
+
 def fDispServer(args):
 	db.displayServers()
 	pass
@@ -37,7 +43,7 @@ def fHelp(args):
 
 def fExecuteQuery(args):
 	# get string from args
-	db.executeQuery(args.queryString)
+	db.executeQuery(getStringFromArray(args.queryString))
 	pass
 	#usbv
 
@@ -69,7 +75,7 @@ addServerParse.add_argument('host')
 addServerParse.add_argument('port')
 addServerParse.add_argument('database')
 addServerParse.add_argument('username')
-addServerParse.add_argument('password')
+addServerParse.add_argument('--password')
 
 delServerParse = subparsers.add_parser('delServer', description=delServerHelpString)
 delServerParse.set_defaults(func=fDelServer)

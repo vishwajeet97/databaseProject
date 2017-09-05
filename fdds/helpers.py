@@ -7,24 +7,19 @@ class parser(object):
 	def __init__(self):
 		super(parser, self).__init__()
 
-	def createServerFromArgs(args):
-		userver = server()
-		# parse the args and create a server object and return
-		return userver
-
-class server(object):
-	"""docstring for server"""
-	def __init__(self, arg):
-		super(server, self).__init__()
-		self.arg = arg
+	def createServerFromArgs(self, args):
 		userver = {}
 		# parse the args and create a server object and return
 		userver["host"] = args.host
 		userver["port"] = args.port
 		userver["database"] = args.database
-		if hasattr(args, "username") and hasattr(args, "password"):
+		if hasattr(args, "username"):
 			userver["username"] = args.username
-			userver["password"] = args.password
+		if hasattr(args, "password"):
+			if args.password is None:
+				userver["password"] = ""
+			else:
+				userver["password"] = args.password
 		return userver
 
 class QueryDeploy(threading.Thread):
@@ -35,24 +30,25 @@ class QueryDeploy(threading.Thread):
 		self.site = site
 		self.query = query
 
-	def run():
+	def run(self):
+
+		print(self.query)
 		# run the query
 		with ppg.connect(
-				host=site["host"],
-				port=site["port"],
-				dbname=site["database"],
-				user=site["username"],
-				password=site["password"]
+				host=self.site["host"],
+				port=self.site["port"],
+				dbname=self.site["database"],
+				user=self.site["username"],
+				password=self.site["password"]
 				) as conn:
 			try:
 				with conn.cursor() as cur:
-					cur.execute(query)
+					cur.execute(self.query)
 					res = cur.fetchall()
 			except ppg.Error as e:
 				raise e
-		# return resultSet
 		self.rs = res
 
-	def join():
+	def join(self):
 		super(QueryDeploy, self).join()
 		return self.rs
