@@ -2,10 +2,13 @@ import pg_query
 from tabulate import tabulate
 from .helpers import QueryDeploy
 
+from .helpers import server
+
 class fdd(object):
 	"""docstring for fdd"""
 	def __init__(self):
 		super(fdd, self).__init__()
+
 		self.site_dict = {}
 		self.site_iterator = 0
 
@@ -37,4 +40,12 @@ class fdd(object):
 		# receive call backs form the threads
 		# combine the results
 		# display the results
+
+		for key, server in self.site_dict:
+			s = QueryDeploy(server, qString)
+			s.start()
+			resultSet = s.join()
+			# take union of resultsets
+
+
 		pass
