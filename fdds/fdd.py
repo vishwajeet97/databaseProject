@@ -1,7 +1,4 @@
-import psycopg2
 import pg_query
-
-from .helpers import server
 
 class fdd(object):
 	"""docstring for fdd"""

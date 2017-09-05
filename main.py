@@ -38,8 +38,7 @@ def fHelp(args):
 
 def fExecuteQuery(args):
 	# get string from args
-	qstr = ""
-	db.executeQuery(qstr)
+	db.executeQuery(args.queryString)
 	pass
 	#usbv
 
