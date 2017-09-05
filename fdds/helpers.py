@@ -45,11 +45,13 @@ class QueryDeploy(threading.Thread):
 				password=site["password"]
 				) as conn:
 			try:
-				resultSet = conn.execute(query)
+				with conn.cursor() as cur:
+					cur.execute(query)
+					res = cur.fetchall()
 			except ppg.Error as e:
 				raise e
 		# return resultSet
-		self.rs = resultSet
+		self.rs = res
 
 	def join():
 		super(QueryDeploy, self).join()
