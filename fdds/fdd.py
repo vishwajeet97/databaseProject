@@ -1,6 +1,7 @@
-import pg_query
+from pg_query import Node, parse_sql
 from tabulate import tabulate
 from .helpers import QueryDeploy
+import json
 
 class fdd(object):
 	"""docstring for fdd"""
@@ -8,6 +9,7 @@ class fdd(object):
 		super(fdd, self).__init__()
 
 		self.site_dict = {}
+		self.query_site = {}
 		self.site_iterator = 0
 
 	def displayServers(self):
@@ -36,8 +38,44 @@ class fdd(object):
 				del self.site_dict[key]
 				return
 
+	def SelectStmt(self, stmt):
+		if stmt["op"] == 0:
+			if len(stmt["fromClause"]) == 1:
+				for key, server in self.site_dict.items():
+					self.query_site[key] = self.qString
+
+	def InsertStmt(self):
+		pass
+
+	def UpdateStmt(self):
+		pass
+
+	def DeleteStmt(self):
+		pass
+
 	def executeQuery(self, qString):
 		# form the parse tree
+		root = parse_sql(qString)
+		qj = json.dumps(root, indent=4)
+
+		self.qString = qString
+
+		# print(type(root), type(root[0]["RawStmt"]))
+		# print(qj)
+		# print(len(root))
+
+		if len(root) == 1:
+			print(root[0]["RawStmt"]["stmt"])
+			stmt = root[0]["RawStmt"]["stmt"]
+			if stmt["SelectStmt"] is not None:
+				self.SelectStmt(stmt["SelectStmt"])
+			elif stmt["InsertStmt"] is not None:
+				self.InsertStmt(stmt["InsertStmt"])
+			elif stmt["DeleteStmt"] is not None:
+				self.DeleteStmt(stmt["DeleteStmt"])
+			elif stmt["UpdateStmt"] is not None:
+				self.UpdateStmt(stmt["UpdateStmt"])
+
 		# mux based on type of query
 		# form the sub queries
 		# determine the sites the sub queries are run on
@@ -47,17 +85,17 @@ class fdd(object):
 		# display the results
 
 		# save QueryDeploy objects in array
-		list_s = []
+		threads = {}
 		for key, server in self.site_dict.items():
-			s = QueryDeploy(server, qString)
-			list_s.append(s)
-			s.start()
+			threads[key] = QueryDeploy(server, self.query_site[key])
+			# threads[key].start()
 
-		for s in list_s:
-			res = s.join()
-			print(res)
-			
+		res = {}
+		# for key, thread in threads.items():
+			# res[key] = thread.join()
+
 		# take union of resultsets
-
+		# for key, result in res.items():
+			# print(key, result)
 
 		pass
