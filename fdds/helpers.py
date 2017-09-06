@@ -1,4 +1,5 @@
 import argparse
+import pickle
 import threading
 import psycopg2 as ppg
 
@@ -21,6 +22,12 @@ class parser(object):
 			else:
 				userver["password"] = args.password
 		return userver
+
+	def readFromFile(self, filename):
+		return pickle.load(open(filename, "rb"))
+
+	def writeIntoFile(self, filename, obj):
+		pickle.dump(obj, open(filename, "wb"))
 
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""

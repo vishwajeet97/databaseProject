@@ -21,6 +21,13 @@ class fdd(object):
 		self.site_dict[self.site_iterator] = userver
 		self.site_iterator += 1
 
+	def addServers(self, uservers):
+		for server in uservers:
+			self.addServer(server)
+
+	def getServersList(self):
+		return list(self.site_dict.values())
+
 	def deleteServer(self, userver):
 		# delete server from the list of sites
 		# update the tablet controller

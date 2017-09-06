@@ -10,6 +10,8 @@ dispServerHelpString = "Displays all the intergrated child databases"
 addServerHelpString = "Integrates the given database into the system"
 delServerHelpString = "Disintegrates the given database from the system"
 executeQueryHelpString = "Executes the given query on the integrated system"
+loadServersConfigHelpString = "Loads configurations of sites from the given file"
+saveServersConfigHelpString = "Saves configurations of sites in the given file"
 helpHelpString = "Prints summary of all available commands"
 exitHelpString = "Exits duh!"
 
@@ -37,6 +39,16 @@ def fDelServer(args):
 	db.deleteServer(userver)
 	pass
 	#sac
+
+def fLoadServersConfig(args):
+	uservers = psr.readFromFile(args.filename)
+	db.addServers(uservers)
+	pass
+
+def fSaveServersConfig(args):
+	uservers = db.getServersList()
+	psr.writeIntoFile(args.filename, uservers)
+	pass
 
 def fHelp(args):
 	cmdparser.print_help()
@@ -82,6 +94,14 @@ delServerParse.set_defaults(func=fDelServer)
 delServerParse.add_argument('host')
 delServerParse.add_argument('port')
 delServerParse.add_argument('database')
+
+loadServersConfigParse = subparsers.add_parser('loadServersConfig', description=loadServersConfigHelpString)
+loadServersConfigParse.set_defaults(func=fLoadServersConfig)
+loadServersConfigParse.add_argument('filename')
+
+saveServersConfigParse = subparsers.add_parser('saveServersConfig', description=saveServersConfigHelpString)
+saveServersConfigParse.set_defaults(func=fSaveServersConfig)
+saveServersConfigParse.add_argument('filename')
 
 executeQueryParse = subparsers.add_parser('executeQuery', description=executeQueryHelpString)
 executeQueryParse.set_defaults(func=fExecuteQuery)
