@@ -53,6 +53,18 @@ class fdd(object):
 	def DeleteStmt(self):
 		pass
 
+	def DropStmt(self, stmt):
+		# modify tablet controller after parsing
+		for key, server in self.site_dict.items():
+			self.query_site[key] = self.qString
+		pass
+
+	def CreateStmt(self, stmt):
+		# create tablet controller after parsing
+		for key, server in self.site_dict.items():
+			self.query_site[key] = self.qString
+		pass
+
 	def executeQuery(self, qString):
 		# form the parse tree
 		root = parse_sql(qString)
@@ -60,21 +72,26 @@ class fdd(object):
 
 		self.qString = qString
 
-		# print(type(root), type(root[0]["RawStmt"]))
-		# print(qj)
-		# print(len(root))
-
 		if len(root) == 1:
-			print(root[0]["RawStmt"]["stmt"])
 			stmt = root[0]["RawStmt"]["stmt"]
-			if stmt["SelectStmt"] is not None:
+
+			if "SelectStmt" in stmt.keys():
 				self.SelectStmt(stmt["SelectStmt"])
-			elif stmt["InsertStmt"] is not None:
+			
+			elif "InsertStmt" in stmt.keys():
 				self.InsertStmt(stmt["InsertStmt"])
-			elif stmt["DeleteStmt"] is not None:
+			
+			elif "DeleteStmt" in stmt.keys():
 				self.DeleteStmt(stmt["DeleteStmt"])
-			elif stmt["UpdateStmt"] is not None:
+			
+			elif "UpdateStmt" in stmt.keys():
 				self.UpdateStmt(stmt["UpdateStmt"])
+			
+			elif "DropStmt" in stmt.keys():
+				self.DropStmt(stmt["DropStmt"])
+			
+			elif "CreateStmt" in stmt.keys():
+				self.CreateStmt(stmt["CreateStmt"])
 
 		# mux based on type of query
 		# form the sub queries
@@ -88,14 +105,17 @@ class fdd(object):
 		threads = {}
 		for key, server in self.site_dict.items():
 			threads[key] = QueryDeploy(server, self.query_site[key])
-			# threads[key].start()
+			threads[key].start()
+			print(key, self.query_site[key])
+
+		self.query_site.clear()
 
 		res = {}
-		# for key, thread in threads.items():
-			# res[key] = thread.join()
+		for key, thread in threads.items():
+			res[key] = thread.join()
 
 		# take union of resultsets
-		# for key, result in res.items():
-			# print(key, result)
+		for key, result in res.items():
+			print(key, result)
 
 		pass

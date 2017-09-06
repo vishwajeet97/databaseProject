@@ -39,7 +39,7 @@ class QueryDeploy(threading.Thread):
 
 	def run(self):
 
-		print(self.query)
+		res = []
 		# run the query
 		with ppg.connect(
 				host=self.site["host"],
@@ -53,9 +53,11 @@ class QueryDeploy(threading.Thread):
 					cur.execute(self.query)
 					res = cur.fetchall()
 			except ppg.Error as e:
-				raise e
-		self.rs = res
+				print(e)
+			except ppg.ProgrammingError as e:
+				print(e)
+		self.res = res
 
 	def join(self):
 		super(QueryDeploy, self).join()
-		return self.rs
+		return self.res
