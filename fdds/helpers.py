@@ -2,6 +2,7 @@ import argparse
 import pickle
 import threading
 import psycopg2 as ppg
+import hashlib
 
 class parser(object):
 	"""docstring for parser"""
@@ -61,3 +62,24 @@ class QueryDeploy(threading.Thread):
 	def join(self):
 		super(QueryDeploy, self).join()
 		return self.res
+
+class TabletController(object):
+	"""docstring for TabletController"""
+	def __init__(self, nTablets, siteList):
+		super(TabletController, self).__init__()
+		self.tablets = nTablets
+		self.siteList = siteList
+
+	def hashFunction(self, key):
+		return abs(hash(key)) % self.tablets
+
+	def giveSitesList(self, query):
+		# Parse insert tree to primary key, relation
+		# Concat the primary ket to get string and then hash to get tablet id
+		# Get the siteId from the map of (tableid, siteid)
+		# return the (site, query)
+
+	def createTabletMappingForRelation(self, query):
+		#Check if mapping already exists
+		# If not create an entry of the mapping between (tableid, siteid) for the relation
+		# Then add this map to the master map with the relation map as the key
