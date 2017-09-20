@@ -78,8 +78,10 @@ class TabletController(object):
 		# Concat the primary ket to get string and then hash to get tablet id
 		# Get the siteId from the map of (tableid, siteid)
 		# return the (site, query)
+		pass
 
 	def createTabletMappingForRelation(self, query):
 		#Check if mapping already exists
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
 		# Then add this map to the master map with the relation map as the key
+		pass

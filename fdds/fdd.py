@@ -1,6 +1,7 @@
 from pg_query import Node, parse_sql
 from tabulate import tabulate
 from .helpers import QueryDeploy
+from .helpers import TabletController
 import json
 
 class fdd(object):
@@ -11,6 +12,7 @@ class fdd(object):
 		self.site_dict = {}
 		self.query_site = {}
 		self.site_iterator = 0
+		self.schema_operations = []
 
 	def displayServers(self):
 		# prints the list of sites included in the system
@@ -38,19 +40,29 @@ class fdd(object):
 				del self.site_dict[key]
 				return
 
-	def SelectStmt(self, stmt):
+	def freezeSchema(self):
+		self.tbc = TabletController(NTABLETS, list(self.site_dict.keys()))
+
+		for operation in schema_operations:
+			self.tbc.createTabletMappingForRelation(operation)
+
+	def SelectStmt(self):
 		if stmt["op"] == 0:
 			if len(stmt["fromClause"]) == 1:
 				for key, server in self.site_dict.items():
 					self.query_site[key] = self.qString
 
-	def InsertStmt(self):
+	def InsertStmt(self, stmt):
+		site = self.tbc.giveSitesList(stmt)[0]
+		self.query_site[site] = self.qString
 		pass
 
-	def UpdateStmt(self):
+	def UpdateStmt(self, stmt):
+		site = self.tbc.giveSitesList(stmt)[0]
+		self.query_site[site] = self.qString
 		pass
 
-	def DeleteStmt(self):
+	def DeleteStmt(self, stmt):
 		pass
 
 	def DropStmt(self, stmt):
@@ -61,6 +73,8 @@ class fdd(object):
 
 	def CreateStmt(self, stmt):
 		# create tablet controller after parsing
+		self.schema_operations.append(stmt)
+		
 		for key, server in self.site_dict.items():
 			self.query_site[key] = self.qString
 		pass

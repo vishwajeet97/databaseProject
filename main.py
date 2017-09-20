@@ -9,6 +9,7 @@ APPLICATION_NAME = "fdds v1"
 dispServerHelpString = "Displays all the intergrated child databases"
 addServerHelpString = "Integrates the given database into the system"
 delServerHelpString = "Disintegrates the given database from the system"
+freezeSchemaString = "Freezes the schema; Can't perform any schema operations later"
 executeQueryHelpString = "Executes the given query on the integrated system"
 loadServersConfigHelpString = "Loads configurations of sites from the given file"
 saveServersConfigHelpString = "Saves configurations of sites in the given file"
@@ -59,6 +60,12 @@ def fExecuteQuery(args):
 	pass
 	#usbv
 
+def fFreeze(args):
+	# get string from args
+	db.freezeSchema()
+	pass
+	#usbv
+
 def fExit(args):
 	# Maintain the database before exiting
 	if args is "SystemExit":
@@ -94,6 +101,9 @@ delServerParse.set_defaults(func=fDelServer)
 delServerParse.add_argument('host')
 delServerParse.add_argument('port')
 delServerParse.add_argument('database')
+
+freezeParse = subparsers.add_parser('freezeSchema', description=freezeSchemaString)
+freezeParse.set_defaults(func=fFreeze)
 
 loadServersConfigParse = subparsers.add_parser('loadServersConfig', description=loadServersConfigHelpString)
 loadServersConfigParse.set_defaults(func=fLoadServersConfig)
