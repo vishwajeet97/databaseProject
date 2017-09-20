@@ -4,6 +4,8 @@ from .helpers import QueryDeploy
 from .helpers import TabletController
 import json
 
+NTABLETS = 20
+
 class fdd(object):
 	"""docstring for fdd"""
 	def __init__(self):
@@ -43,10 +45,11 @@ class fdd(object):
 	def freezeSchema(self):
 		self.tbc = TabletController(NTABLETS, list(self.site_dict.keys()))
 
-		for operation in schema_operations:
-			self.tbc.createTabletMappingForRelation(operation)
+		for operation in self.schema_operations:
+			self.tbc.createTabletMappingForRelation(operation["CreateStmt"])
 
-	def SelectStmt(self):
+	def SelectStmt(self, stmt):
+		stmt = stmt["SelectStmt"]
 		if stmt["op"] == 0:
 			if len(stmt["fromClause"]) == 1:
 				for key, server in self.site_dict.items():
@@ -88,7 +91,7 @@ class fdd(object):
 			return
 
 		qj = json.dumps(root, indent=4)
-		print(qj)
+		# print(qj)
 
 		self.qString = qString
 
@@ -96,22 +99,22 @@ class fdd(object):
 			stmt = root[0]["RawStmt"]["stmt"]
 
 			if "SelectStmt" in stmt.keys():
-				self.SelectStmt(stmt["SelectStmt"])
+				self.SelectStmt(stmt)
 			
 			elif "InsertStmt" in stmt.keys():
-				self.InsertStmt(stmt["InsertStmt"])
+				self.InsertStmt(stmt)
 			
 			elif "DeleteStmt" in stmt.keys():
-				self.DeleteStmt(stmt["DeleteStmt"])
+				self.DeleteStmt(stmt)
 			
 			elif "UpdateStmt" in stmt.keys():
-				self.UpdateStmt(stmt["UpdateStmt"])
+				self.UpdateStmt(stmt)
 			
 			elif "DropStmt" in stmt.keys():
-				self.DropStmt(stmt["DropStmt"])
+				self.DropStmt(stmt)
 			
 			elif "CreateStmt" in stmt.keys():
-				self.CreateStmt(stmt["CreateStmt"])
+				self.CreateStmt(stmt)
 
 		# mux based on type of query
 		# form the sub queries
@@ -123,8 +126,9 @@ class fdd(object):
 
 		# save QueryDeploy objects in array
 		threads = {}
-		for key, server in self.site_dict.items():
-			threads[key] = QueryDeploy(server, self.query_site[key])
+		# print(self.site_dict)
+		for key, squery in self.query_site.items():
+			threads[key] = QueryDeploy(self.site_dict[key], squery)
 			threads[key].start()
 			print(key, self.query_site[key])
 

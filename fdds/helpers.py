@@ -69,6 +69,7 @@ class TabletController(object):
 		super(TabletController, self).__init__()
 		self.tablets = nTablets
 		self.siteList = siteList
+		self.master_map = {}
 
 
 	def hashFunction(self, key):
@@ -81,8 +82,7 @@ class TabletController(object):
 		# return the (site, query)
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
-			print(relname)
-			valList = queryTree["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
+			valList = stmt["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
 			# assume valList contains only one list
 			if len(valList) != 1:
 				print("Multiple values cannot be inserted")
@@ -90,11 +90,11 @@ class TabletController(object):
 
 			attr_str = ""
 			for i in valList[0]:
-				valElement = valList[0]["A_Const"]["val"]
+				valElement = i["A_Const"]["val"]
 				for key in valElement.keys():
 					for key1 in valElement[key]:
 						v = valElement[key][key1]
-						attr_str += v
+						attr_str += str(v)
 
 			tablet_id = self.hashFunction(attr_str)
 			return [self.master_map[relname][tablet_id]]
@@ -103,8 +103,14 @@ class TabletController(object):
 			return self.siteList
 
 				
-	def createTabletMappingForRelation(self, query):
-		#Check if mapping already exists
+	def createTabletMappingForRelation(self, tree):
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
+
+		mapping = {}
+		for i in range(0, self.tablets):
+			mapping[i] = self.siteList[i % len(self.siteList)]
+
+		self.master_map[tree["relation"]["RangeVar"]["relname"]] = mapping
+
 		# Then add this map to the master map with the relation map as the key
 		pass
