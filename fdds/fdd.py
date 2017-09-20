@@ -1,4 +1,4 @@
-from pg_query import Node, parse_sql
+from pg_query import Node, parse_sql, parser
 from tabulate import tabulate
 from .helpers import QueryDeploy
 from .helpers import TabletController
@@ -81,8 +81,14 @@ class fdd(object):
 
 	def executeQuery(self, qString):
 		# form the parse tree
-		root = parse_sql(qString)
+		try:
+			root = parse_sql(qString)
+		except parser.ParseError as e:
+			print(e)
+			return
+
 		qj = json.dumps(root, indent=4)
+		print(qj)
 
 		self.qString = qString
 

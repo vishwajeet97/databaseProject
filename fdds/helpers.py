@@ -70,16 +70,39 @@ class TabletController(object):
 		self.tablets = nTablets
 		self.siteList = siteList
 
+
 	def hashFunction(self, key):
 		return abs(hash(key)) % self.tablets
 
-	def giveSitesList(self, query):
+	def giveSitesList(self, stmt):
 		# Parse insert tree to primary key, relation
 		# Concat the primary ket to get string and then hash to get tablet id
 		# Get the siteId from the map of (tableid, siteid)
 		# return the (site, query)
-		pass
+		if "InsertStmt" in stmt.keys():
+			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
+			print(relname)
+			valList = queryTree["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
+			# assume valList contains only one list
+			if len(valList) != 1:
+				print("Multiple values cannot be inserted")
+				return None
 
+			attr_str = ""
+			for i in valList[0]:
+				valElement = valList[0]["A_Const"]["val"]
+				for key in valElement.keys():
+					for key1 in valElement[key]:
+						v = valElement[key][key1]
+						attr_str += v
+
+			tablet_id = self.hashFunction(attr_str)
+			return [self.master_map[relname][tablet_id]]
+
+		else:
+			return self.siteList
+
+				
 	def createTabletMappingForRelation(self, query):
 		#Check if mapping already exists
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
