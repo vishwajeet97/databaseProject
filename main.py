@@ -42,13 +42,13 @@ def fDelServer(args):
 	#sac
 
 def fLoadServersConfig(args):
-	uservers = psr.readFromFile(args.filename)
-	db.addServers(uservers)
+	uinfo = psr.readFromFile(args.filename)
+	db.addConfig(uinfo)
 	pass
 
 def fSaveServersConfig(args):
-	uservers = db.getServersList()
-	psr.writeIntoFile(args.filename, uservers)
+	uinfo = db.getConfig()
+	psr.writeIntoFile(args.filename, uinfo)
 	pass
 
 def fHelp(args):
@@ -85,10 +85,10 @@ def sigHandler(signum, frame):
 cmdparser = argparse.ArgumentParser(description=APPLICATION_NAME, prog='', add_help=False)
 subparsers = cmdparser.add_subparsers()
 
-dispServerParse = subparsers.add_parser('dispServer', description=dispServerHelpString)
+dispServerParse = subparsers.add_parser('display', description=dispServerHelpString)
 dispServerParse.set_defaults(func=fDispServer)
 
-addServerParse = subparsers.add_parser('addServer', description=addServerHelpString)
+addServerParse = subparsers.add_parser('add', description=addServerHelpString)
 addServerParse.set_defaults(func=fAddServer)
 addServerParse.add_argument('host')
 addServerParse.add_argument('port')
@@ -96,24 +96,24 @@ addServerParse.add_argument('database')
 addServerParse.add_argument('username')
 addServerParse.add_argument('--password')
 
-delServerParse = subparsers.add_parser('delServer', description=delServerHelpString)
+delServerParse = subparsers.add_parser('del', description=delServerHelpString)
 delServerParse.set_defaults(func=fDelServer)
 delServerParse.add_argument('host')
 delServerParse.add_argument('port')
 delServerParse.add_argument('database')
 
-freezeParse = subparsers.add_parser('freezeSchema', description=freezeSchemaString)
+freezeParse = subparsers.add_parser('freeze', description=freezeSchemaString)
 freezeParse.set_defaults(func=fFreeze)
 
-loadServersConfigParse = subparsers.add_parser('loadServersConfig', description=loadServersConfigHelpString)
+loadServersConfigParse = subparsers.add_parser('load', description=loadServersConfigHelpString)
 loadServersConfigParse.set_defaults(func=fLoadServersConfig)
 loadServersConfigParse.add_argument('filename')
 
-saveServersConfigParse = subparsers.add_parser('saveServersConfig', description=saveServersConfigHelpString)
+saveServersConfigParse = subparsers.add_parser('save', description=saveServersConfigHelpString)
 saveServersConfigParse.set_defaults(func=fSaveServersConfig)
 saveServersConfigParse.add_argument('filename')
 
-executeQueryParse = subparsers.add_parser('executeQuery', description=executeQueryHelpString)
+executeQueryParse = subparsers.add_parser('execute', description=executeQueryHelpString)
 executeQueryParse.set_defaults(func=fExecuteQuery)
 executeQueryParse.add_argument('queryString', nargs="+")
 

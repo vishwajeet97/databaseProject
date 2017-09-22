@@ -27,12 +27,13 @@ class fdd(object):
 		self.site_dict[self.site_iterator] = userver
 		self.site_iterator += 1
 
-	def addServers(self, uservers):
-		for server in uservers:
+	def addConfig(self, uinfo):
+		self.schema_operations = uinfo[0]
+		for server in uinfo[1]:
 			self.addServer(server)
 
-	def getServersList(self):
-		return list(self.site_dict.values())
+	def getConfig(self):
+		return [self.schema_operations, list(self.site_dict.values())]
 
 	def deleteServer(self, userver):
 		# delete server from the list of sites
