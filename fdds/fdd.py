@@ -92,7 +92,7 @@ class fdd(object):
 			return
 
 		qj = json.dumps(root, indent=4)
-		# print(qj)
+		print(qj)
 
 		self.qString = qString
 

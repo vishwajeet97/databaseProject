@@ -65,19 +65,19 @@ class QueryDeploy(threading.Thread):
 
 class TabletController(object):
 	"""docstring for TabletController"""
-	def __init__(self, nTablets, siteList):
+	def __init__(self, nTablets, siteList, schema_data):
 		super(TabletController, self).__init__()
 		self.tablets = nTablets
 		self.siteList = siteList
 		self.master_map = {}
-
+		self.schema_data = schema_data;
 
 	def hashFunction(self, key):
 		return abs(hash(key)) % self.tablets
 
 	def giveSitesList(self, stmt):
-		# Parse insert tree to primary key, relation
-		# Concat the primary ket to get string and then hash to get tablet id
+		# Parse insert tree to get primary key, relation
+		# Concat the primary key to get string and then hash to get tablet id
 		# Get the siteId from the map of (tableid, siteid)
 		# return the (site, query)
 		if "InsertStmt" in stmt.keys():
@@ -88,15 +88,22 @@ class TabletController(object):
 				print("Multiple values cannot be inserted")
 				return None
 
-			attr_str = ""
-			for i in valList[0]:
-				valElement = i["A_Const"]["val"]
-				for key in valElement.keys():
-					for key1 in valElement[key]:
-						v = valElement[key][key1]
-						attr_str += str(v)
+			primary_key_attrs = schema_data[relname];
 
-			tablet_id = self.hashFunction(attr_str)
+			pk_attr_str = ""
+			val_index = 0
+			for i in valList[0]:
+				if val_index in primary_key_attrs:
+					valElement = i["A_Const"]["val"]
+					for key in valElement.keys():
+						for key1 in valElement[key]:
+							v = valElement[key][key1]
+							pk_attr_str += str(v)
+				val_index += 1
+
+			print(pk_attr_str)
+
+			tablet_id = self.hashFunction(pk_attr_str)
 			return [self.master_map[relname][tablet_id]]
 
 		else:
