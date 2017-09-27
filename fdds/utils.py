@@ -2,6 +2,10 @@ import psycopg2 as ppg
 import subprocess
 
 def moveTablets(fromSite, toSite, fromTablet, toTablet):
+	"""
+	fromSite, toSite : Contains the information about the site in form of a dict
+	fromTablet, toTabler : Relation name as strings
+	"""
 	fromHost = fromSite["host"]
 	fromPort = fromSite["port"]
 	fromUser = fromSite["username"]
@@ -19,4 +23,22 @@ def moveTablets(fromSite, toSite, fromTablet, toTablet):
 	process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 	output, error = process.communicate()
 
-	print error
+	res = []
+	# run the query
+	with ppg.connect(
+			host=fromHost,
+			port=fromPort,
+			dbname=fromDatabase,
+			user=fromUser,
+			password=fromPassword
+			) as conn:
+		try:
+			with conn.cursor() as cur:
+				cur.execute('DROP TABLE "%s";' % fromTablet)
+				res = cur.fetchall()
+		except ppg.Error as e:
+			print(e)
+		except ppg.ProgrammingError as e:
+			print(e)
+
+	print error, res
