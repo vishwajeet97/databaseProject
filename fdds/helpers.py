@@ -88,7 +88,7 @@ class TabletController(object):
 				print("Multiple values cannot be inserted")
 				return None
 
-			primary_key_attrs = schema_data[relname];
+			primary_key_attrs = self.schema_data["pkmetadata"][relname];
 
 			pk_attr_str = ""
 			val_index = 0

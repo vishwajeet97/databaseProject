@@ -14,7 +14,11 @@ class fdd(object):
 		self.site_dict = {}
 		self.query_site = {}
 		self.site_iterator = 0
-		self.schema_operations = []
+		self.schema_data = dict()
+
+		self.schema_data["stmts"] = list()
+		self.schema_data["pkmetadata"] = {}
+
 
 	def displayServers(self):
 		# prints the list of sites included in the system
@@ -28,12 +32,15 @@ class fdd(object):
 		self.site_iterator += 1
 
 	def addConfig(self, uinfo):
-		self.schema_operations = uinfo[0]
+		self.schema_data = uinfo[0]
 		for server in uinfo[1]:
 			self.addServer(server)
 
+		print("List of sites: ", uinfo[1])
+		print("Schema loaded: ", uinfo[0])
+
 	def getConfig(self):
-		return [self.schema_operations, list(self.site_dict.values())]
+		return [self.schema_data, list(self.site_dict.values())]
 
 	def deleteServer(self, userver):
 		# delete server from the list of sites
@@ -44,9 +51,9 @@ class fdd(object):
 				return
 
 	def freezeSchema(self):
-		self.tbc = TabletController(NTABLETS, list(self.site_dict.keys()))
+		self.tbc = TabletController(NTABLETS, list(self.site_dict.keys()), self.schema_data)
 
-		for operation in self.schema_operations:
+		for operation in self.schema_data["stmts"]:
 			self.tbc.createTabletMappingForRelation(operation["CreateStmt"])
 
 	def SelectStmt(self, stmt):
@@ -77,7 +84,43 @@ class fdd(object):
 
 	def CreateStmt(self, stmt):
 		# create tablet controller after parsing
-		self.schema_operations.append(stmt)
+		self.schema_data["stmts"].append(stmt)
+
+		# update primary key meta data
+		relname = stmt["CreateStmt"]["relation"]["RangeVar"]["relname"]
+		pkarray = []
+		
+		tbelts = stmt["CreateStmt"]["tableElts"]
+		
+		pknamelist = []
+		pkdone = False
+
+		for item in tbelts:
+			if "Constraint" in item.keys():
+				if item["Constraint"]["contype"] == 5:
+					pknamelist = [ x["String"]["str"] for x in item["Constraint"]["keys"] ]
+					pkdone = True
+
+		print(pkdone, pknamelist)
+
+		count = 0
+		for item in tbelts:
+			if "ColumnDef" in item.keys():
+				if pkdone:
+					if item["ColumnDef"]["colname"] in pknamelist:
+						pkarray.append(count)
+				else:
+					if "constraints" in item["ColumnDef"].keys():
+						for cons in item["ColumnDef"]["constraints"]:
+							print(cons, type(cons))
+							if cons["Constraint"]["contype"] == 5:
+								pkarray.append(count)
+				count += 1
+
+
+		print("primary key array of :" + relname, pkarray)
+
+		self.schema_data["pkmetadata"][relname] = pkarray
 		
 		for key, server in self.site_dict.items():
 			self.query_site[key] = self.qString
@@ -92,7 +135,7 @@ class fdd(object):
 			return
 
 		qj = json.dumps(root, indent=4)
-		print(qj)
+		# print(qj)
 
 		self.qString = qString
 
