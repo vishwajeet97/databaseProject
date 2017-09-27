@@ -3,6 +3,7 @@ import pickle
 import threading
 import psycopg2 as ppg
 import hashlib
+import random
 
 class parser(object):
 	"""docstring for parser"""
@@ -87,9 +88,8 @@ class TabletController(object):
 			if len(valList) != 1:
 				print("Multiple values cannot be inserted")
 				return None
-
+			
 			primary_key_attrs = self.schema_data["pkmetadata"][relname];
-
 			pk_attr_str = ""
 			val_index = 0
 			for i in valList[0]:
@@ -101,11 +101,14 @@ class TabletController(object):
 							pk_attr_str += str(v)
 				val_index += 1
 
-			print(pk_attr_str)
+			if pk_attr_str == "":
+				tablet_id = random.randint(0, self.tablets - 1)
+			else:
+				tablet_id = self.hashFunction(pk_attr_str)
 
-			tablet_id = self.hashFunction(pk_attr_str)
+			print("tablet id: ", tablet_id)
 			return [self.master_map[relname][tablet_id]]
-
+			
 		else:
 			return self.siteList
 
