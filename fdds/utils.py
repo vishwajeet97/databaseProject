@@ -1,27 +1,47 @@
 import psycopg2 as ppg
 import subprocess
 
-def moveTablets(fromSite, toSite, fromTablet, toTablet):
+def moveTablets(fromSite, toSite, tableName):
 	"""
 	fromSite, toSite : Contains the information about the site in form of a dict
-	fromTablet, toTabler : Relation name as strings
+	tableName : Relation name as strings
+	Result : Creates a table at toSite with the same name as tableName and drops the
+	table at fromSite
 	"""
 	fromHost = fromSite["host"]
 	fromPort = fromSite["port"]
+	fromDatabase = fromSite["database"]
 	fromUser = fromSite["username"]
 	fromPassword = fromSite["password"]
 
 	toHost = toSite["host"]
 	toPort = toSite["port"]
+	toDatabase = toSite["database"]
 	toUser = toSite["username"]
 	toPassword = toSite["password"]	
 
-	bashCommand = "pg_dump -h %s -p %s -Fc -o -U %s -w %s -t %s -d %s | psql -h %s -p %s -U %s -w %s -t %s -d %s" 
+	if fromPassword == "":
+		fromPassStr = "-w %s"
+	else:
+		fromPassStr = "-W %s"
 
-	bashCommand = bashCommand % (fromHost, fromPort, fromUser, fromTablet, fromDatabase, toHost, toPort, toUser, toTablet, toDatabase)
+	if toPassword == "":
+		toPassStr = "-w %s"
+	else:
+		toPassStr = "-W %s"
 
-	process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+	bashCommand = "pg_dump -h %s -p %s -Fc -o -U %s " + fromPassStr + " -t %s -d %s | pg_restore -h %s -p %s -U %s " + toPassStr + " -d %s" 
+
+
+
+	bashCommand = bashCommand % (fromHost, fromPort, fromUser, fromPassword, tableName, fromDatabase, toHost, toPort, toUser, toPassword, toDatabase)
+
+	# print(bashCommand)
+
+	process = subprocess.Popen(bashCommand, shell=True, stdout=subprocess.PIPE)
 	output, error = process.communicate()
+
+	# print(output, error)
 
 	res = []
 	# run the query
@@ -34,11 +54,11 @@ def moveTablets(fromSite, toSite, fromTablet, toTablet):
 			) as conn:
 		try:
 			with conn.cursor() as cur:
-				cur.execute('DROP TABLE "%s";' % fromTablet)
+				cur.execute('DROP TABLE "%s";' % tableName)
 				res = cur.fetchall()
 		except ppg.Error as e:
 			print(e)
 		except ppg.ProgrammingError as e:
 			print(e)
 
-	print error, res
+	# print(res)
