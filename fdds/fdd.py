@@ -57,11 +57,12 @@ class fdd(object):
 			self.tbc.createTabletMappingForRelation(operation["CreateStmt"])
 
 	def SelectStmt(self, stmt):
-		stmt = stmt["SelectStmt"]
-		if stmt["op"] == 0:
-			if len(stmt["fromClause"]) == 1:
-				for key, server in self.site_dict.items():
-					self.query_site[key] = self.qString
+		if stmt["SelectStmt"]["op"] == 0:
+			if len(stmt["SelectStmt"]["fromClause"]) == 1:
+				sites = self.tbc.giveSitesList(stmt)
+				print("sites ", sites, type(sites))
+				for s in sites:
+					self.query_site[s] = self.qString
 
 	def InsertStmt(self, stmt):
 		site = self.tbc.giveSitesList(stmt)[0]
@@ -108,13 +109,15 @@ class fdd(object):
 			if "ColumnDef" in item.keys():
 				if pkdone:
 					if item["ColumnDef"]["colname"] in pknamelist:
-						pkarray.append(count)
+						index_name = (count, item["ColumnDef"]["colname"])
+						pkarray.append(index_name)
 				else:
 					if "constraints" in item["ColumnDef"].keys():
 						for cons in item["ColumnDef"]["constraints"]:
 							print(cons, type(cons))
 							if cons["Constraint"]["contype"] == 5:
-								pkarray.append(count)
+								index_name = (count, item["ColumnDef"]["colname"])
+								pkarray.append(index_name)
 				count += 1
 
 

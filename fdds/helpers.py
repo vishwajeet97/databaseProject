@@ -89,11 +89,12 @@ class TabletController(object):
 				print("Multiple values cannot be inserted")
 				return None
 			
-			primary_key_attrs = self.schema_data["pkmetadata"][relname];
+			primary_key_attrs = self.schema_data["pkmetadata"][relname] # list of (index, attr_name) tuples
+			primary_key_index, primary_key_name = zip(*primary_key_attrs)
 			pk_attr_str = ""
 			val_index = 0
 			for i in valList[0]:
-				if val_index in primary_key_attrs:
+				if val_index in primary_key_index:
 					valElement = i["A_Const"]["val"]
 					for key in valElement.keys():
 						for key1 in valElement[key]:
@@ -101,6 +102,7 @@ class TabletController(object):
 							pk_attr_str += str(v)
 				val_index += 1
 
+			print("pk attr string ", pk_attr_str)
 			if pk_attr_str == "":
 				tablet_id = random.randint(0, self.tablets - 1)
 			else:
@@ -108,7 +110,41 @@ class TabletController(object):
 
 			print("tablet id: ", tablet_id)
 			return [self.master_map[relname][tablet_id]]
-			
+
+		elif "SelectStmt" in stmt.keys():
+			# where clause of type "attr = value"
+			from_list = stmt["SelectStmt"]["fromClause"]
+			if len(from_list) > 1:
+				return self.siteList
+
+			relname = from_list[0]["RangeVar"]["relname"]
+			if "whereClause" not in stmt["SelectStmt"].keys():
+				return self.siteList
+				
+			attrList = stmt["SelectStmt"]["whereClause"]["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
+			primary_key_attrs = self.schema_data["pkmetadata"][relname]
+			primary_key_index, primary_key_name = zip(*primary_key_attrs)
+			if len(attrList) == 1:
+				attr = attrList[0]["String"]["str"]
+				# check that primary key is attr
+				if len(primary_key_attrs) == 1 and primary_key_name[0] == attr:
+					pk_attr_str = ""	
+					valElement = stmt["SelectStmt"]["whereClause"]["A_Expr"]["rexpr"]["A_Const"]["val"]
+					for key in valElement.keys():
+						for key1 in valElement[key]:
+							v = valElement[key][key1]
+							pk_attr_str += str(v)
+
+					print("pk attr string ", pk_attr_str)
+					if pk_attr_str == "":
+						return self.siteList
+					else:
+						tablet_id = self.hashFunction(pk_attr_str) # hashes to different tablet ids for same query in different runs of the program
+						print("tablet id: ", tablet_id)
+						return [self.master_map[relname][tablet_id]]
+				else:
+					return self.siteList		
+
 		else:
 			return self.siteList
 
