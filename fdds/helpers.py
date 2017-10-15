@@ -74,7 +74,8 @@ class TabletController(object):
 		self.schema_data = schema_data;
 
 	def hashFunction(self, key):
-		return abs(hash(key)) % self.tablets
+		encoded_key = key.encode('utf-8')
+		return abs(int(hashlib.sha1(encoded_key).hexdigest(), 16)) % self.tablets
 
 	def giveSitesList(self, stmt):
 		# Parse insert tree to get primary key, relation
