@@ -62,3 +62,10 @@ def moveTablets(fromSite, toSite, tableName):
 			print(e)
 
 	# print(res)
+
+def changeRelNameInQuery(querys, cname, tname):
+	return querys.replace(cname, tname)
+
+def changeAggrTypeInQuery(querys, caggr, taggr):
+	qs = querys.replace(caggr + "(", taggr + "(")
+	return qs.replace(caggr + " (", taggr + "(")
