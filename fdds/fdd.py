@@ -138,7 +138,7 @@ class fdd(object):
 			return
 
 		qj = json.dumps(root, indent=4)
-		# print(qj)
+		print(qj)
 
 		self.qString = qString
 
@@ -188,5 +188,67 @@ class fdd(object):
 		# take union of resultsets
 		for key, result in res.items():
 			print(key, result)
+		self.print_new(res, stmt)
 
 		pass
+
+	def print_new(self, res, stmt):
+		if "SelectStmt" in stmt:
+			if stmt["SelectStmt"]["op"] == 0:
+				if len(stmt["SelectStmt"]["fromClause"]) == 1:
+					aggDict = {}
+					if "groupClause" not in stmt["SelectStmt"]:
+						for index, ResTarget in enumerate(stmt["SelectStmt"]["targetList"]):
+							if "FuncCall" in ResTarget["ResTarget"]["val"]:
+								funcname = ResTarget["ResTarget"]["val"]["FuncCall"]["funcname"][0]["String"]["str"]
+								if funcname == "min":
+									min_num = res[0][0][index]
+									for key, res_tuple in res.items():
+										if(res_tuple[0][index] is not None and res_tuple[0][index] < min_num):
+											min_num = res_tuple[0][index]
+									aggDict[index] = min_num
+									pass
+								elif funcname =="max":
+									max_num = res[0][0][index]
+									for key, res_tuple in res.items():
+										if(res_tuple[0][index] is not None and res_tuple[0][index] > max_num):
+											max_num = res_tuple[0][index]
+									aggDict[index] = max_num
+									pass
+								elif funcname == "count":
+									count_num = 0
+									for key, res_tuple in res.items():
+										if(res_tuple[0][index] is not None):
+											count_num = count_num + res_tuple[0][index]
+									aggDict[index] = count_num
+									pass
+								elif funcname == "sum":
+									sum_num = 0
+									for key, res_tuple in res.items():
+										if(res_tuple[0][index] is not None):
+											sum_num = sum_num + res_tuple[0][index]
+									aggDict[index] = sum_num
+									pass
+								elif funcname == "avg":
+									pass
+							else:
+								aggDict.append(res[0][index])
+
+						for key, result in aggDict.items():
+							print(result, end=' ')
+					else:
+				 		# Handle Group by clause
+				 		for key, result in res.items():
+				 			print(key, result)
+				else:
+					# join for multiple tables here
+					for key, result in res.items():
+			 			print(key, result)
+				print("\n")
+			else:
+				# Not a select statement
+				for key, result in res.items():
+			 		print(key, result)
+		else:
+			for key, result in res.items():
+			 		print(key, result)
