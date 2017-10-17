@@ -59,27 +59,27 @@ class fdd(object):
 	def SelectStmt(self, stmt, qString):
 		if stmt["SelectStmt"]["op"] == 0:
 			if len(stmt["SelectStmt"]["fromClause"]) == 1:
-				self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+				self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 				# for s in sites:
 					# self.query_site[s] = qString
 
 	def InsertStmt(self, stmt, qString):
-		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def UpdateStmt(self, stmt, qString):
-		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def DeleteStmt(self, stmt, qString):
-		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def DropStmt(self, stmt, qString):
 		# modify tablet controller after parsing
 		for site in list(self.site_dict.keys()):
 			self.query_site[site] = [qString]
-		# self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+		# self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def CreateStmt(self, stmt, qString):
@@ -122,7 +122,7 @@ class fdd(object):
 		
 		for site in list(self.site_dict.keys()):
 			self.query_site[site] = [qString]
-		# self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
+		# self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def executeQuery(self, qString):
@@ -214,7 +214,7 @@ class fdd(object):
        else:
 
            funclist = qinfo["aggregatetype"]
-           
+
            return aggDict
 
 

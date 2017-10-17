@@ -59,16 +59,13 @@ class TabletController(object):
 		for site in self.siteList:
 			default[site] = [qstring]
 
-		qinfo = {}
-		qinfo["aggregate"] = False
-
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
 			valList = stmt["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
 			# assume valList contains only one list
 			if len(valList) != 1:
 				print("Multiple values cannot be inserted")
-				return default, qinfo
+				return default
 			
 			primary_key_attrs = self.schema_data["pkmetadata"][relname] # list of (index, attr_name) tuples
 			primary_key_index, primary_key_name = zip(*primary_key_attrs)
@@ -92,16 +89,16 @@ class TabletController(object):
 			# print("tablet id: ", tablet_id)
 			ret = {}
 			ret[self.master_map[relname][tablet_id]] = [qstring]
-			return ret, qinfo
+			return ret
 
 		elif "SelectStmt" in stmt.keys():
 			from_list = stmt["SelectStmt"]["fromClause"]
 			if len(from_list) > 1:
-				return default, qinfo
+				return default
 
 			relname = from_list[0]["RangeVar"]["relname"]
 			if "whereClause" not in stmt["SelectStmt"].keys():
-				return default, qinfo
+				return default
 				
 			attrList = stmt["SelectStmt"]["whereClause"]["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
@@ -113,7 +110,7 @@ class TabletController(object):
 				attrList = whereClause["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
 				compOp = whereClause["A_Expr"]["name"][0]["String"]["str"]
 				if compOp != "=":
-					return default, qinfo
+					return default
 				
 				attr = attrList[0]["String"]["str"] 
 				# check that primary key is attr
@@ -127,25 +124,25 @@ class TabletController(object):
 
 					# print("pk attr string ", pk_attr_str)
 					if pk_attr_str == "":
-						return default, qinfo
+						return default
 					else:
 						tablet_id = self.hashFunction(pk_attr_str)
 						print("tablet id: ", tablet_id)
 						ret = {}
 						ret[self.master_map[relname][tablet_id]] = [qstring]
-						return ret, qinfo
+						return ret
 				else:
-					return default, qinfo
+					return default
 			else:
 				# where clause involving boolean expressions (possibly nested)
 				# find values of primary key attributes
 				boolexpr = whereClause["BoolExpr"]
 				for a in boolexpr["args"]:
 					if "BoolExpr" in a.keys():
-						return default, qinfo
+						return default
 
 				if boolexpr["boolop"] != 0:
-					return default, qinfo
+					return default
 		
 				args = boolexpr["args"]
 				pk_attr_str = ""
@@ -156,11 +153,11 @@ class TabletController(object):
 					compOp = a["A_Expr"]["name"][0]["String"]["str"]
 					if compOp != "=":
 						print("no =")
-						return default, qinfo
+						return default
 
 				for pk in primary_key_name:
 					if pk not in arg_attr:
-						return default, qinfo
+						return default
 
 				for a in args: 
 					column = a["A_Expr"]["lexpr"]["ColumnRef"]["fields"][0]["String"]["str"]
@@ -177,10 +174,10 @@ class TabletController(object):
 				# print("tablet id: ", tablet_id)
 				ret = {}
 				ret[self.master_map[relname][tablet_id]] = [qstring]
-				return ret, qinfo
+				return ret
 
 		else:
-			return default, qinfo
+			return default
 
 				
 	def createTabletMappingForRelation(self, tree):
