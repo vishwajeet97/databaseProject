@@ -1,5 +1,32 @@
 import psycopg2 as ppg
 import subprocess
+import pickle
+
+class parser(object):
+	"""docstring for parser"""
+	def __init__(self):
+		super(parser, self).__init__()
+
+	def createServerFromArgs(self, args):
+		userver = {}
+		# parse the args and create a server object and return
+		userver["host"] = args.host
+		userver["port"] = args.port
+		userver["database"] = args.database
+		if hasattr(args, "username"):
+			userver["username"] = args.username
+		if hasattr(args, "password"):
+			if args.password is None:
+				userver["password"] = ""
+			else:
+				userver["password"] = args.password
+		return userver
+
+	def readFromFile(self, filename):
+		return pickle.load(open(filename, "rb"))
+
+	def writeIntoFile(self, filename, obj):
+		pickle.dump(obj, open(filename, "wb"))
 
 def moveTablets(fromSite, toSite, tableName):
 	"""

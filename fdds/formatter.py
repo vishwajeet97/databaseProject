@@ -3,6 +3,7 @@ import json
 
 while 1:
 	try:
-		print(json.dumps(parse_sql(input()), indent=3))
+		a = parse_sql(input())
+		print(json.dumps(a, indent=3))
 	except Exception as e:
 		print(e)

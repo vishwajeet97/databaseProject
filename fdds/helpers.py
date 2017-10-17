@@ -1,35 +1,7 @@
-import argparse
-import pickle
 import threading
 import psycopg2 as ppg
 import hashlib
 import random
-
-class parser(object):
-	"""docstring for parser"""
-	def __init__(self):
-		super(parser, self).__init__()
-
-	def createServerFromArgs(self, args):
-		userver = {}
-		# parse the args and create a server object and return
-		userver["host"] = args.host
-		userver["port"] = args.port
-		userver["database"] = args.database
-		if hasattr(args, "username"):
-			userver["username"] = args.username
-		if hasattr(args, "password"):
-			if args.password is None:
-				userver["password"] = ""
-			else:
-				userver["password"] = args.password
-		return userver
-
-	def readFromFile(self, filename):
-		return pickle.load(open(filename, "rb"))
-
-	def writeIntoFile(self, filename, obj):
-		pickle.dump(obj, open(filename, "wb"))
 
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""
@@ -77,11 +49,16 @@ class TabletController(object):
 		encoded_key = key.encode('utf-8')
 		return abs(int(hashlib.sha1(encoded_key).hexdigest(), 16)) % self.tablets
 
-	def giveSitesList(self, stmt):
+	def getSiteQueryMapping(self, stmt, qstring):
 		# Parse insert tree to get primary key, relation
 		# Concat the primary key to get string and then hash to get tablet id
 		# Get the siteId from the map of (tableid, siteid)
 		# return the (site, query)
+
+		default = {}
+		for site in self.siteList:
+			default[site] = [qstring]
+
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
 			valList = stmt["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
@@ -103,24 +80,26 @@ class TabletController(object):
 							pk_attr_str += str(v)
 				val_index += 1
 
-			print("pk attr string ", pk_attr_str)
+			# print("pk attr string ", pk_attr_str)
 			if pk_attr_str == "":
 				tablet_id = random.randint(0, self.tablets - 1)
 			else:
 				tablet_id = self.hashFunction(pk_attr_str)
 
-			print("tablet id: ", tablet_id)
-			return [self.master_map[relname][tablet_id]]
+			# print("tablet id: ", tablet_id)
+			ret = {}
+			ret[self.master_map[relname][tablet_id]] = [qstring]
+			return ret
 
 		elif "SelectStmt" in stmt.keys():
 			# where clause of type "attr = value"
 			from_list = stmt["SelectStmt"]["fromClause"]
 			if len(from_list) > 1:
-				return self.siteList
+				return default
 
 			relname = from_list[0]["RangeVar"]["relname"]
 			if "whereClause" not in stmt["SelectStmt"].keys():
-				return self.siteList
+				return default
 				
 			attrList = stmt["SelectStmt"]["whereClause"]["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
@@ -136,18 +115,20 @@ class TabletController(object):
 							v = valElement[key][key1]
 							pk_attr_str += str(v)
 
-					print("pk attr string ", pk_attr_str)
+					# print("pk attr string ", pk_attr_str)
 					if pk_attr_str == "":
-						return self.siteList
+						return default
 					else:
 						tablet_id = self.hashFunction(pk_attr_str) # hashes to different tablet ids for same query in different runs of the program
-						print("tablet id: ", tablet_id)
-						return [self.master_map[relname][tablet_id]]
+						# print("tablet id: ", tablet_id)
+						ret = {}
+						ret[self.master_map[relname][tablet_id]] = [qstring]
+						return ret
 				else:
-					return self.siteList		
+					return default		
 
 		else:
-			return self.siteList
+			return default
 
 				
 	def createTabletMappingForRelation(self, tree):

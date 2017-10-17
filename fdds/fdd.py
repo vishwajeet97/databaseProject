@@ -56,34 +56,31 @@ class fdd(object):
 		for operation in self.schema_data["stmts"]:
 			self.tbc.createTabletMappingForRelation(operation["CreateStmt"])
 
-	def SelectStmt(self, stmt):
+	def SelectStmt(self, stmt, qString):
 		if stmt["SelectStmt"]["op"] == 0:
 			if len(stmt["SelectStmt"]["fromClause"]) == 1:
-				sites = self.tbc.giveSitesList(stmt)
-				print("sites ", sites, type(sites))
-				for s in sites:
-					self.query_site[s] = self.qString
+				self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+				# for s in sites:
+					# self.query_site[s] = qString
 
-	def InsertStmt(self, stmt):
-		site = self.tbc.giveSitesList(stmt)[0]
-		self.query_site[site] = self.qString
+	def InsertStmt(self, stmt, qString):
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
-	def UpdateStmt(self, stmt):
-		site = self.tbc.giveSitesList(stmt)[0]
-		self.query_site[site] = self.qString
+	def UpdateStmt(self, stmt, qString):
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
-	def DeleteStmt(self, stmt):
+	def DeleteStmt(self, stmt, qString):
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
-	def DropStmt(self, stmt):
+	def DropStmt(self, stmt, qString):
 		# modify tablet controller after parsing
-		for key, server in self.site_dict.items():
-			self.query_site[key] = self.qString
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
-	def CreateStmt(self, stmt):
+	def CreateStmt(self, stmt, qString):
 		# create tablet controller after parsing
 		self.schema_data["stmts"].append(stmt)
 
@@ -102,8 +99,6 @@ class fdd(object):
 					pknamelist = [ x["String"]["str"] for x in item["Constraint"]["keys"] ]
 					pkdone = True
 
-		print(pkdone, pknamelist)
-
 		count = 0
 		for item in tbelts:
 			if "ColumnDef" in item.keys():
@@ -114,19 +109,16 @@ class fdd(object):
 				else:
 					if "constraints" in item["ColumnDef"].keys():
 						for cons in item["ColumnDef"]["constraints"]:
-							print(cons, type(cons))
+							# print(cons, type(cons))
 							if cons["Constraint"]["contype"] == 5:
 								index_name = (count, item["ColumnDef"]["colname"])
 								pkarray.append(index_name)
 				count += 1
 
 
-		print("primary key array of :" + relname, pkarray)
-
 		self.schema_data["pkmetadata"][relname] = pkarray
 		
-		for key, server in self.site_dict.items():
-			self.query_site[key] = self.qString
+		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def executeQuery(self, qString):
@@ -138,30 +130,30 @@ class fdd(object):
 			return
 
 		qj = json.dumps(root, indent=4)
-		print(qj)
+		# print(qj)
 
-		self.qString = qString
+		# qString = qString
 
 		if len(root) == 1:
 			stmt = root[0]["RawStmt"]["stmt"]
 
 			if "SelectStmt" in stmt.keys():
-				self.SelectStmt(stmt)
+				self.SelectStmt(stmt, qString)
 			
 			elif "InsertStmt" in stmt.keys():
-				self.InsertStmt(stmt)
+				self.InsertStmt(stmt, qString)
 			
 			elif "DeleteStmt" in stmt.keys():
-				self.DeleteStmt(stmt)
+				self.DeleteStmt(stmt, qString)
 			
 			elif "UpdateStmt" in stmt.keys():
-				self.UpdateStmt(stmt)
+				self.UpdateStmt(stmt, qString)
 			
 			elif "DropStmt" in stmt.keys():
-				self.DropStmt(stmt)
+				self.DropStmt(stmt, qString)
 			
 			elif "CreateStmt" in stmt.keys():
-				self.CreateStmt(stmt)
+				self.CreateStmt(stmt, qString)
 
 		# mux based on type of query
 		# form the sub queries
@@ -175,21 +167,27 @@ class fdd(object):
 		threads = {}
 		# print(self.site_dict)
 		for key, squery in self.query_site.items():
-			threads[key] = QueryDeploy(self.site_dict[key], squery)
-			threads[key].start()
-			print(key, self.query_site[key])
+			threads[key] = {}
+			for i, iquery in enumerate(squery):
+				threads[key][i] = QueryDeploy(self.site_dict[key], iquery)
+				threads[key][i].start()
+			print(key, squery)
 
 		self.query_site.clear()
 
 		res = {}
-		for key, thread in threads.items():
-			res[key] = thread.join()
+		for key, sitethreads in threads.items():
+			res[key] = {}
+			for ind, thread in sitethreads.items():
+				res[key][ind] = thread.join()
 
+		print("Site-wise Query-wise Results")
 		# take union of resultsets
 		for key, result in res.items():
 			print(key, result)
-		self.print_new(res, stmt)
 
+		print("Aggregated Results")
+		# self.print_new(res, stmt)
 		pass
 
 	def print_new(self, res, stmt):
