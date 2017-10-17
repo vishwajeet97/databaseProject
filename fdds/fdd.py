@@ -59,25 +59,27 @@ class fdd(object):
 	def SelectStmt(self, stmt, qString):
 		if stmt["SelectStmt"]["op"] == 0:
 			if len(stmt["SelectStmt"]["fromClause"]) == 1:
-				self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+				self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 				# for s in sites:
 					# self.query_site[s] = qString
 
 	def InsertStmt(self, stmt, qString):
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def UpdateStmt(self, stmt, qString):
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def DeleteStmt(self, stmt, qString):
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def DropStmt(self, stmt, qString):
 		# modify tablet controller after parsing
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		for site in list(self.site_dict.keys()):
+			self.query_site[site] = [qString]
+		# self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def CreateStmt(self, stmt, qString):
@@ -118,7 +120,9 @@ class fdd(object):
 
 		self.schema_data["pkmetadata"][relname] = pkarray
 		
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		for site in list(self.site_dict.keys()):
+			self.query_site[site] = [qString]
+		# self.query_site, self.query_info = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def executeQuery(self, qString):
@@ -187,8 +191,32 @@ class fdd(object):
 			print(key, result)
 
 		print("Aggregated Results")
-		# self.print_new(res, stmt)
+
+		finalResult = self.aggregateResults(res, self.query_info, qString, stmt)
+
+		print(finalResult)
+
 		pass
+
+	def aggregateResults(self, result, qinfo, qString, qtree):
+       
+       aggDict = {}
+       
+       finRes = []
+
+       if not qinfo["aggregate"]:
+               
+           for site, qress in result.items():
+               for k, qres in qress.items():
+                   finRes.extend(qres)
+           return finRes
+           
+       else:
+
+           funclist = qinfo["aggregatetype"]
+           
+           return aggDict
+
 
 	def print_new(self, res, stmt):
 		if "SelectStmt" in stmt:
