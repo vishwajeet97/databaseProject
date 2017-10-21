@@ -36,14 +36,67 @@ class QueryDeploy(threading.Thread):
 		super(QueryDeploy, self).join()
 		return self.res
 
+NTABLETS = 20
+
 class TabletController(object):
 	"""docstring for TabletController"""
-	def __init__(self, nTablets, siteList, schema_data):
+	def __init__(self, siteList):
 		super(TabletController, self).__init__()
-		self.tablets = nTablets
+		self.tablets = NTABLETS
 		self.siteList = siteList
 		self.master_map = {}
-		self.schema_data = schema_data;
+		self.schema_data = {}
+
+		self.schema_data["stmts"] = []
+		self.schema_data["pkmetadata"] = {}
+
+	def setMetaData(self, data):
+		self.schema_data = data
+
+		for operation in self.schema_data["stmts"]:
+			self.createTabletMappingForRelation(operation["CreateStmt"])
+
+	def getMetaData(self):
+		return self.schema_data
+
+	def createTableMetaData(self, stmt):
+
+		self.schema_data["stmts"].append(stmt)
+
+		# update primary key meta data
+		relname = stmt["CreateStmt"]["relation"]["RangeVar"]["relname"]
+		pkarray = []
+		
+		tbelts = stmt["CreateStmt"]["tableElts"]
+		
+		pknamelist = []
+		pkdone = False
+
+		for item in tbelts:
+			if "Constraint" in item.keys():
+				if item["Constraint"]["contype"] == 5:
+					pknamelist = [ x["String"]["str"] for x in item["Constraint"]["keys"] ]
+					pkdone = True
+
+		count = 0
+		for item in tbelts:
+			if "ColumnDef" in item.keys():
+				if pkdone:
+					if item["ColumnDef"]["colname"] in pknamelist:
+						index_name = (count, item["ColumnDef"]["colname"])
+						pkarray.append(index_name)
+				else:
+					if "constraints" in item["ColumnDef"].keys():
+						for cons in item["ColumnDef"]["constraints"]:
+							# print(cons, type(cons))
+							if cons["Constraint"]["contype"] == 5:
+								index_name = (count, item["ColumnDef"]["colname"])
+								pkarray.append(index_name)
+				count += 1
+
+		self.schema_data["pkmetadata"][relname] = pkarray
+
+		self.createTabletMappingForRelation(stmt["CreateStmt"])		
 
 	def hashFunction(self, key):
 		encoded_key = key.encode('utf-8')
@@ -104,6 +157,7 @@ class TabletController(object):
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
 			primary_key_index, primary_key_name = zip(*primary_key_attrs)
 
+			whereClause = stmt["SelectStmt"]["whereClause"]
 			if "BoolExpr" not in whereClause.keys():
 				# where clause of type "attr = value"
 				# assuming where clause is not of type (A1, A2) = ('val1', 'val2')
@@ -178,8 +232,7 @@ class TabletController(object):
 
 		else:
 			return default
-
-				
+		
 	def createTabletMappingForRelation(self, tree):
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
 

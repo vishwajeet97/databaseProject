@@ -124,9 +124,11 @@ exitParse = subparsers.add_parser('exit', description=exitHelpString)
 exitParse.set_defaults(func=fExit)
 
 def main():
+	print("")
 	cmdparser.print_help()
 	signal.signal(signal.SIGINT, sigHandler)
 	while True:
+		print("")
 		cmd_string = input("fdds$ ")
 		try:
 			args = cmdparser.parse_args(cmd_string.split(' '))
