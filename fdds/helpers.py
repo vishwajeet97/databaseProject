@@ -3,6 +3,8 @@ import psycopg2 as ppg
 import hashlib
 import random
 
+from .utils import changeRelNameInQuery as crn
+
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""
 	def __init__(self, site, query):
@@ -141,7 +143,7 @@ class TabletController(object):
 
 			# print("tablet id: ", tablet_id)
 			ret = {}
-			ret[self.master_map[relname][tablet_id]] = [qstring]
+			ret[self.master_map[relname][tablet_id]] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
 			return ret
 
 		elif "SelectStmt" in stmt.keys():
@@ -229,6 +231,37 @@ class TabletController(object):
 				ret = {}
 				ret[self.master_map[relname][tablet_id]] = [qstring]
 				return ret
+
+		elif "CreateStmt" in stmt.keys():
+
+			relname = stmt["CreateStmt"]["relation"]["RangeVar"]["relname"]
+			retmap = {}
+			for site in self.siteList:
+				retmap[site] = []
+
+			for i in range(0, self.tablets):
+				si = self.master_map[relname][i]
+				qr = crn(qstring, relname, relname + "_" + str(i))
+				retmap[si].append(qr)
+
+			# return default
+			return retmap
+
+		elif "DropStmt" in stmt.keys():
+
+			relsname = [ x["String"]["str"] for x in stmt["DropStmt"]["objects"][0] ]
+			retmap = {}
+			for site in self.siteList:
+				retmap[site] = []
+
+			for i in range(0, self.tablets):
+				for rel in relsname:
+					si = self.master_map[rel][i]
+					qr = "drop table " + rel + "_" + str(i)
+					retmap[si].append(qr)
+
+			# return default
+			return retmap
 
 		else:
 			return default
