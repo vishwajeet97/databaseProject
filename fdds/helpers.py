@@ -104,15 +104,49 @@ class TabletController(object):
 		encoded_key = key.encode('utf-8')
 		return abs(int(hashlib.sha1(encoded_key).hexdigest(), 16)) % self.tablets
 
+	def getRelName(self, stmt):
+		relNameList = []
+		if "InsertStmt" in stmt.keys():
+			relName = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
+			relNameList.append(relName)
+		elif "SelectStmt" in stmt.keys():
+			from_list = stmt["SelectStmt"]["fromClause"]
+			for from_item in from_list:
+				relName = from_item["RangeVar"]["relname"]
+				relNameList.append(relName)
+		elif "CreateStmt" in stmt.keys():
+			relName = stmt["CreateStmt"]["relation"]["RangeVar"]["relname"]
+			relNameList.append(relName)
+		elif "DropStmt" in stmt.keys():
+			relsName = [ x["String"]["str"] for x in stmt["DropStmt"]["objects"][0] ]
+			relNameList = relsName
+		
+		return relNameList
+
+
 	def getSiteQueryMapping(self, stmt, qstring):
 		# Parse insert tree to get primary key, relation
 		# Concat the primary key to get string and then hash to get tablet id
 		# Get the siteId from the map of (tableid, siteid)
 		# return the (site, query)
 
+		relNameList = self.getRelName(stmt)
+		print(relNameList)
+
 		default = {}
 		for site in self.siteList:
-			default[site] = [qstring]
+			default[site] = []
+
+		# doesn't work properly if length of relNameList > 1
+		for i in range(0, self.tablets):
+			qr = qstring
+			for relname in relNameList:
+				qr = crn(qr, relname, relname + "_" + str(i))
+			for relName in relNameList:
+				si = self.master_map[relname][i]
+				default[si].append(qr)
+
+		print(default)
 
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
@@ -124,24 +158,39 @@ class TabletController(object):
 			
 			primary_key_attrs = self.schema_data["pkmetadata"][relname] # list of (index, attr_name) tuples
 			primary_key_index, primary_key_name = zip(*primary_key_attrs)
+			pk_attr_val = []
 			pk_attr_str = ""
 			val_index = 0
 			for i in valList[0]:
 				if val_index in primary_key_index:
+					pk_attr_val_el = []
+					for x in primary_key_attrs:
+						if x[0] == val_index:
+					 		pk_attr_name = x[1]
+					 		pk_attr_val_el.append(pk_attr_name)
+
 					valElement = i["A_Const"]["val"]
 					for key in valElement.keys():
 						for key1 in valElement[key]:
 							v = valElement[key][key1]
-							pk_attr_str += str(v)
+							pk_attr_val_el.append(v)
+							pk_attr_val.append(pk_attr_val_el)
 				val_index += 1
 
-			# print("pk attr string ", pk_attr_str)
+			pk_attr_val.sort()  # so that different order of attributes in query will return same tablet_id
+			print(pk_attr_val)
+			pk_attr_str = ""
+			pk_attr_names, pk_attr_values = zip(*pk_attr_val)
+			for v in pk_attr_values:
+				pk_attr_str += str(v)
+
+			print("pk attr string ", pk_attr_str)
 			if pk_attr_str == "":
 				tablet_id = random.randint(0, self.tablets - 1)
 			else:
 				tablet_id = self.hashFunction(pk_attr_str)
 
-			# print("tablet id: ", tablet_id)
+			print("tablet id: ", tablet_id)
 			ret = {}
 			ret[self.master_map[relname][tablet_id]] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
 			return ret
@@ -154,8 +203,7 @@ class TabletController(object):
 			relname = from_list[0]["RangeVar"]["relname"]
 			if "whereClause" not in stmt["SelectStmt"].keys():
 				return default
-				
-			attrList = stmt["SelectStmt"]["whereClause"]["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
+
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
 			primary_key_index, primary_key_name = zip(*primary_key_attrs)
 
@@ -164,6 +212,7 @@ class TabletController(object):
 				# where clause of type "attr = value"
 				# assuming where clause is not of type (A1, A2) = ('val1', 'val2')
 				attrList = whereClause["A_Expr"]["lexpr"]["ColumnRef"]["fields"]
+
 				compOp = whereClause["A_Expr"]["name"][0]["String"]["str"]
 				if compOp != "=":
 					return default
@@ -184,9 +233,13 @@ class TabletController(object):
 					else:
 						tablet_id = self.hashFunction(pk_attr_str)
 						print("tablet id: ", tablet_id)
-						ret = {}
-						ret[self.master_map[relname][tablet_id]] = [qstring]
-						return ret
+						retmap = {}
+						for site in self.siteList:
+							retmap[site] = []
+
+						qr = crn(qstring, relname, relname + "_" + str(tablet_id))
+						retmap[self.master_map[relname][tablet_id]] = [qr]
+						return retmap
 				else:
 					return default
 			else:
@@ -201,7 +254,6 @@ class TabletController(object):
 					return default
 		
 				args = boolexpr["args"]
-				pk_attr_str = ""
 				arg_attr = list()
 				for a in args:
 					column = a["A_Expr"]["lexpr"]["ColumnRef"]["fields"][0]["String"]["str"]
@@ -211,26 +263,43 @@ class TabletController(object):
 						print("no =")
 						return default
 
+
+
 				for pk in primary_key_name:
 					if pk not in arg_attr:
 						return default
 
+				pk_attr_val = []
 				for a in args: 
 					column = a["A_Expr"]["lexpr"]["ColumnRef"]["fields"][0]["String"]["str"]
 					if column not in primary_key_name:
 						continue
+					pk_attr_val_el = [column]
 					valElement = a["A_Expr"]["rexpr"]["A_Const"]["val"] 
 					for key in valElement.keys():
 						for key1 in valElement[key]:
 							v = valElement[key][key1]
-							pk_attr_str += str(v)
+							pk_attr_val_el.append(v)
+							pk_attr_val.append(pk_attr_val_el)
+							#pk_attr_str += str(v)
 
-				# print("pk attr string ", pk_attr_str)
+				pk_attr_val.sort()  # so that different order of attributes in query will return same tablet_id
+				print(pk_attr_val)
+				pk_attr_str = ""
+				pk_attr_names, pk_attr_values = zip(*pk_attr_val)
+				for v in pk_attr_values:
+					pk_attr_str += str(v)
+
+				print("pk_attr_str " + pk_attr_str)
 				tablet_id = self.hashFunction(pk_attr_str)
-				# print("tablet id: ", tablet_id)
-				ret = {}
-				ret[self.master_map[relname][tablet_id]] = [qstring]
-				return ret
+				print("tablet id: ", tablet_id)
+				retmap = {}
+				for site in self.siteList:
+					retmap[site] = []
+
+				qr = crn(qstring, relname, relname + "_" + str(tablet_id))
+				retmap[self.master_map[relname][tablet_id]] = [qr]
+				return retmap
 
 		elif "CreateStmt" in stmt.keys():
 
@@ -264,6 +333,7 @@ class TabletController(object):
 			return retmap
 
 		else:
+			print(default)
 			return default
 		
 	def createTabletMappingForRelation(self, tree):
