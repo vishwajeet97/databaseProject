@@ -2,6 +2,7 @@ from pg_query import Node, parse_sql, parser
 from tabulate import tabulate
 from .helpers import QueryDeploy
 from .helpers import TabletController
+from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator
 import json
 
 class fdd(object):
@@ -70,8 +71,18 @@ class fdd(object):
 		pass
 
 	def SelectStmt(self, stmt, qString):
-		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
-		pass
+		print(qString,changeAvgInQueryToSumCount(qString))
+
+		# if there is no target in select then don't worry about executing the query
+		if("targetList" not in stmt["SelectStmt"].keys()):
+			pass
+		else:
+			qString = changeAvgInQueryToSumCount(qString)
+			print(qString)
+			if("groupClause" in stmt["SelectStmt"].keys()):
+				qString = insertIntoSelectFromGroupby(qString)
+			print(qString)
+			self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		
 	def InsertStmt(self, stmt, qString):
 		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
@@ -135,6 +146,8 @@ class fdd(object):
 			
 			elif "CreateStmt" in stmt.keys():
 				self.CreateStmt(stmt, qString)
+		else:
+			return
 
 		# mux based on type of query
 		# form the sub queries
@@ -169,7 +182,140 @@ class fdd(object):
 
 		print("Aggregated Results")
 
-		# finalResult = self.aggregateResults(res, self.query_info, qString, stmt)
+		stmt = root[0]["RawStmt"]["stmt"]
+		if "SelectStmt" in stmt.keys() and "targetList" in stmt["SelectStmt"]:
 
-		# print(finalResult)
+			finalResult = self.aggregateResults(res, qString, stmt["SelectStmt"])
+		else:
+			finalResult = []
+
+		print(finalResult)
 		pass
+
+	def aggregateResults(self, res, qString, selectStmt):
+		"""
+		Not going to work for average for the time being as it involves changing the query
+		For average every avg should be replaced by sum and count and at the time
+		of aggregation should have the original query as well
+		Should return a list of tuples which can be printed as is.
+		"""
+		# First find if the query has group by, if yes then call aggregate group by
+		# otherwise check if the select has aggregate functions if yes then call aggregate select functions
+		# otherwise call the aggregate normal functions
+		if "groupClause" in selectStmt.keys():
+			numberOfGroupVariables = len(selectStmt["groupClause"])
+			return self.aggregateGroupBy(res, selectStmt, numberOfGroupVariables)
+		else:
+			return self.aggregateInSelect(res, selectStmt)
+
+
+	def aggregateGroupBy(self, res, selectStmt, numberOfGroupVariables):
+		finalResultDict = {}
+		aggDict = aggregateVariableLocator(selectStmt, numberOfGroupVariables)
+
+		for siteKey, siteResult in res.items():
+			for tabletKey, tabletResult in siteResult.items():
+				for record in tabletResult:
+					groupList = []
+					recordList = []
+					for i in range(0, len(record)):
+						if i < numberOfGroupVariables:
+							groupList.append(record[i])
+						else:
+							recordList.append(record[i])
+
+					groupTuple = tuple(groupList)
+
+					if groupTuple not in finalResultDict.keys():
+						finalResultDict[groupTuple] = recordList
+						continue
+
+					recordOldList = finalResultDict[groupTuple]
+					
+					for index, operation in aggDict.items():
+						if operation == "max":
+							recordOldList[i] = max(recordOldList[i], recordList[i])
+						if operation == "min":
+							recordOldList[i] = min(recordOldList[i], recordList[i])							
+						if operation == "count":
+							recordOldList[i] += recordList[i] 
+						if operation == "avg":
+							recordOldList[i] += recordList[i]							
+							recordOldList[i+1] += recordList[i+1]
+						if operation == "sum":
+							recordOldList[i] += recordList[i]
+
+					finalResultDict[groupTuple] = recordOldList
+
+		finalResult = []
+
+		for keys, record in finalResultDict.items():
+			recordList = []
+			index = numberOfGroupVariables
+			while(index < len(record)):
+				if index not in aggDict.keys():
+					recordList.append(record[index])
+				elif aggDict[index] != "avg":
+					recordList.append(record[index])
+				else:
+					recordList.append(record[index]*1.0/record[index+1])
+					index += 1
+				index += 1
+
+			finalResult.append(tuple(recordList))
+
+		return finalResult
+
+	def aggregateInSelect(self, res, SelectStmt):
+		ansList = []
+		aggVariableLoc = aggregateVariableLocator(SelectStmt, 0)
+		numTargetVariable = len(SelectStmt["targetList"])
+		index = 0
+
+		while index < numTargetVariable:
+			if(index in aggVariableLoc.keys()):
+				funcname = aggVariableLoc[index]
+				if funcname.lower() == "min":
+					min_num = res[0][0][index]
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None and res_tuple[0][index] < min_num):
+							min_num = res_tuple[0][index]
+					ansList.append(min_num)
+				elif funcname.lower() == "max":
+					max_num = res[0][0][index]
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None and res_tuple[0][index] > max_num):
+							max_num = res_tuple[0][index]
+					ansList.append(max_num)
+				elif funcname.lower() == "count":
+					count_num = 0
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None):
+							count_num = count_num + res_tuple[0][index]
+					ansList.append(count_num)
+				elif funcname.lower() == "sum":
+					sum_num = 0
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None):
+							sum_num = sum_num + res_tuple[0][index]
+					ansList.append(sum_num)
+				elif funcname.lower() == "avg":
+					sum_num = 0
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None):
+							sum_num = sum_num + res_tuple[0][index]
+					index += 1
+					count_num = 0
+					for key, res_tuple in res.items():
+						if(res_tuple[0][index] is not None):
+							count_num = count_num + res_tuple[0][index]
+					avg_num = sum_num / count_num
+					ansList.append(avg_num)
+			else:
+				ansList.append(res[0][0][index])
+			index += 1
+
+		return ansList
+
+
+

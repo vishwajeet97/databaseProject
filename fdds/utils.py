@@ -1,6 +1,7 @@
 import psycopg2 as ppg
 import subprocess
 import pickle
+import re
 
 class parser(object):
 	"""docstring for parser"""
@@ -96,3 +97,85 @@ def changeRelNameInQuery(querys, cname, tname):
 def changeAggrTypeInQuery(querys, caggr, taggr):
 	qs = querys.replace(caggr + "(", taggr + "(")
 	return qs.replace(caggr + " (", taggr + "(")
+
+def changeAvgInQueryToSumCount(querys):
+	equivalent_string = querys.replace(",", " , ")
+	equivalent_string = equivalent_string.replace("(", " ( ")
+	equivalent_string = equivalent_string.replace(")", " ) ")
+	equivalent_string = equivalent_string.replace(";", " ; ")
+
+	list_word = equivalent_string.split(' ')
+	list_word = [word for word in list_word if word != '']
+	alterQuery = ''
+
+	index = 0
+	while(index < len(list_word)):
+		if list_word[index].lower == "avg" and index+3 < len(list_word) and list_word[index+1] == "(" and list_word[index+3] == ")":
+			alterQuery += " sum(%s), count(%s)" % (list_word[index+2], list_word[index+2])
+			index += 4
+		else:
+			alterQuery += ' ' + list_word[index]
+			index += 1
+
+	return alterQuery
+
+def insertIntoSelectFromGroupby(querys):
+	equivalent_string = querys.replace(",", " , ")
+	equivalent_string = equivalent_string.replace("(", " ( ")
+	equivalent_string = equivalent_string.replace(")", " ) ")
+	equivalent_string = equivalent_string.replace(";", " ; ")
+
+
+	list_word = equivalent_string.split(' ')
+	list_word = [word for word in list_word if word != '']
+
+	group_index = 0
+	for index, word in enumerate(list_word):
+		if(word.lower() == "group"):
+			group_index = index
+			break
+	group_index += 2
+
+	list_insert = []
+	
+	while(group_index < len(list_word)):
+		if list_word[group_index] != "(" and list_word[group_index] != ")" and list_word[group_index] != "," and list_word[group_index] != ";":
+			list_insert.append(list_word[group_index])
+		group_index += 1
+
+	alterQuery = 'select '
+
+	for word in list_insert:
+		alterQuery += "%s, " % word
+
+	for index, word in enumerate(list_word):
+		if(index != 0):
+			alterQuery += word + ' '
+
+	return alterQuery
+
+def aggregateVariableLocator(SelectStmt, startingIndex):
+	aggDict = {}
+	index = startingIndex
+	for ResTarget in SelectStmt["targetList"]:
+		if "FuncCall" in ResTarget["ResTarget"]["val"]:
+			funcname = ResTarget["ResTarget"]["val"]["FuncCall"]["funcname"][0]["String"]["str"]
+			if funcname.lower() == "min":
+				aggDict[index] = "min"
+				pass
+			elif funcname.lower() == "max":
+				aggDict[index] = "max"
+				pass
+			elif funcname.lower() == "count":
+				aggDict[index] = "count"
+				pass
+			elif funcname.lower() == "sum":
+				aggDict[index] = "sum"
+				pass
+			elif funcname.lower() == "avg":
+				aggDict[index] = "avg"
+				index += 1
+				pass
+		index += 1
+	return aggDict
+
