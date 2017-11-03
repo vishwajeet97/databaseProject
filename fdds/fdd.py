@@ -29,7 +29,7 @@ class fdd(object):
 	def reinitialiseTBC(self):
 
 		perm = True
-		if len(self.tbc.getMetaData()["stmts"]) != 0:
+		if len(self.tbc.getMetaData()[0]["stmts"]) != 0:
 			inp = input("WARNING: All schema data will be lost. Continue? (y/n) ")
 			if inp != "Y" and inp != "y":
 				perm == False

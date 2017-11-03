@@ -69,7 +69,7 @@ def fRun(args):
 
 	try:
 		for x in commands:
-			args = cmdparser.parse_args(cmd_string.split(' '))
+			args = cmdparser.parse_args(x.split(' '))
 			args.func(args)
 	except Exception as e:
 		print("Error in script file", e)
@@ -132,8 +132,8 @@ executeQueryParse.set_defaults(func=fExecuteQuery)
 executeQueryParse.add_argument('queryString', nargs="+")
 
 runParse = subparsers.add_parser('run', description=runHelpString)
-saveServersConfigParse.set_defaults(func=fRun)
-saveServersConfigParse.add_argument('scriptfilename')
+runParse.set_defaults(func=fRun)
+runParse.add_argument('scriptfilename')
 
 helpParse = subparsers.add_parser('help', description=helpHelpString)
 helpParse.set_defaults(func=fHelp)
