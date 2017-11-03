@@ -53,13 +53,14 @@ class TabletController(object):
 		self.schema_data["pkmetadata"] = {}
 
 	def setMetaData(self, data):
-		self.schema_data = data
+		self.schema_data = data[0]
+		self.master_map = data[1]
 
-		for operation in self.schema_data["stmts"]:
-			self.createTabletMappingForRelation(operation["CreateStmt"])
+		# for operation in self.schema_data["stmts"]:
+		# 	self.createTabletMappingForRelation(operation["CreateStmt"])
 
 	def getMetaData(self):
-		return self.schema_data
+		return [ self.schema_data, self.master_map ]
 
 	def createTableMetaData(self, stmt):
 
@@ -137,7 +138,6 @@ class TabletController(object):
 		for site in self.siteList:
 			default[site] = []
 
-		# doesn't work properly if length of relNameList > 1
 		for i in range(0, self.tablets):
 			qr = qstring
 			for relname in relNameList:

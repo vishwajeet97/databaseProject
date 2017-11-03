@@ -92,7 +92,10 @@ def moveTablets(fromSite, toSite, tableName):
 	# print(res)
 
 def changeRelNameInQuery(querys, cname, tname):
-	return querys.replace(cname, tname) # doesn't work if relation name occurs in other parts of query
+	querys = querys.replace(" " + cname + " ", " " + tname + " ")
+	querys = querys.replace(" " + cname + "(", " " + tname + "(")
+	querys = querys.replace(" " + cname + ".", " " + tname + ".")
+	return querys
 
 def changeAggrTypeInQuery(querys, caggr, taggr):
 	qs = querys.replace(caggr + "(", taggr + "(")
