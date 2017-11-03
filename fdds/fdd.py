@@ -2,7 +2,7 @@ from pg_query import Node, parse_sql, parser
 from tabulate import tabulate
 from .helpers import QueryDeploy
 from .helpers import TabletController
-from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator
+from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator, pgSum, pgMax, pgMin, pgAvg
 import json
 
 class fdd(object):
@@ -71,8 +71,6 @@ class fdd(object):
 		pass
 
 	def SelectStmt(self, stmt, qString):
-		print(qString,changeAvgInQueryToSumCount(qString))
-
 		# if there is no target in select then don't worry about executing the query
 		if("targetList" not in stmt["SelectStmt"].keys()):
 			pass
@@ -203,6 +201,7 @@ class fdd(object):
 		# otherwise check if the select has aggregate functions if yes then call aggregate select functions
 		# otherwise call the aggregate normal functions
 		if "groupClause" in selectStmt.keys():
+			print(len(selectStmt["groupClause"]))
 			numberOfGroupVariables = len(selectStmt["groupClause"])
 			return self.aggregateGroupBy(res, selectStmt, numberOfGroupVariables)
 		else:
@@ -212,12 +211,13 @@ class fdd(object):
 	def aggregateGroupBy(self, res, selectStmt, numberOfGroupVariables):
 		finalResultDict = {}
 		aggDict = aggregateVariableLocator(selectStmt, numberOfGroupVariables)
-
+		print(aggDict)
 		for siteKey, siteResult in res.items():
 			for tabletKey, tabletResult in siteResult.items():
 				for record in tabletResult:
 					groupList = []
 					recordList = []
+					print(record)
 					for i in range(0, len(record)):
 						if i < numberOfGroupVariables:
 							groupList.append(record[i])
@@ -225,6 +225,7 @@ class fdd(object):
 							recordList.append(record[i])
 
 					groupTuple = tuple(groupList)
+					print(groupTuple)
 
 					if groupTuple not in finalResultDict.keys():
 						finalResultDict[groupTuple] = recordList
@@ -232,33 +233,34 @@ class fdd(object):
 
 					recordOldList = finalResultDict[groupTuple]
 					
-					for index, operation in aggDict.items():
+					for i, operation in aggDict.items():
 						if operation == "max":
-							recordOldList[i] = max(recordOldList[i], recordList[i])
+							recordOldList[i] = pgMax(recordOldList[i], recordList[i])
 						if operation == "min":
-							recordOldList[i] = min(recordOldList[i], recordList[i])							
+							recordOldList[i] = pgMin(recordOldList[i], recordList[i])							
 						if operation == "count":
 							recordOldList[i] += recordList[i] 
 						if operation == "avg":
-							recordOldList[i] += recordList[i]							
+							recordOldList[i] = pgSum(recordOldList[i],recordList[i])							
 							recordOldList[i+1] += recordList[i+1]
 						if operation == "sum":
-							recordOldList[i] += recordList[i]
+							recordOldList[i] = pgSum(recordOldList[i],recordList[i])
 
 					finalResultDict[groupTuple] = recordOldList
 
 		finalResult = []
+		print(finalResultDict)
 
 		for keys, record in finalResultDict.items():
 			recordList = []
-			index = numberOfGroupVariables
+			index = 0
 			while(index < len(record)):
 				if index not in aggDict.keys():
 					recordList.append(record[index])
 				elif aggDict[index] != "avg":
 					recordList.append(record[index])
 				else:
-					recordList.append(record[index]*1.0/record[index+1])
+					recordList.append(pgAvg(record[index], record[index+1]))
 					index += 1
 				index += 1
 

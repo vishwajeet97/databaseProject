@@ -112,8 +112,10 @@ def changeAvgInQueryToSumCount(querys):
 	alterQuery = ''
 
 	index = 0
+	print(len(list_word))
 	while(index < len(list_word)):
-		if list_word[index].lower == "avg" and index+3 < len(list_word) and list_word[index+1] == "(" and list_word[index+3] == ")":
+		# print("I came till here",index, list_word[index].lower(), list_word[index].lower() == "avg", list_word[index+1] == "(", list_word[index+3] == ")")
+		if list_word[index].lower() == "avg" and index+3 < len(list_word) and list_word[index+1] == "(" and list_word[index+3] == ")":
 			alterQuery += " sum(%s), count(%s)" % (list_word[index+2], list_word[index+2])
 			index += 4
 		else:
@@ -159,7 +161,7 @@ def insertIntoSelectFromGroupby(querys):
 
 def aggregateVariableLocator(SelectStmt, startingIndex):
 	aggDict = {}
-	index = startingIndex
+	index = 0
 	for ResTarget in SelectStmt["targetList"]:
 		if "FuncCall" in ResTarget["ResTarget"]["val"]:
 			funcname = ResTarget["ResTarget"]["val"]["FuncCall"]["funcname"][0]["String"]["str"]
@@ -181,4 +183,40 @@ def aggregateVariableLocator(SelectStmt, startingIndex):
 				pass
 		index += 1
 	return aggDict
+
+def pgSum(arg1, arg2):
+	if arg1 is None and arg2 is None:
+		return None
+	elif arg1 is not None and arg2 is not None:
+		return arg1 + arg2
+	elif arg1 is None:
+		return arg2
+	else:
+		return arg1
+
+def pgMax(arg1, arg2):
+	if arg1 is None and arg2 is None:
+		return None
+	elif arg1 is not None and arg2 is not None:
+		return max(arg1,arg2)
+	elif arg1 is None:
+		return arg2
+	else:
+		return arg1
+
+def pgMin(arg1, arg2):
+	if arg1 is None and arg2 is None:
+		return None
+	elif arg1 is not None and arg2 is not None:
+		return min(arg1,arg2)
+	elif arg1 is None:
+		return arg2
+	else:
+		return arg1
+
+def pgAvg(sum, count):
+	if sum is None or count == 0:
+		return None
+	else:
+		return float(sum)/count
 
