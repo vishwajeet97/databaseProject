@@ -137,7 +137,6 @@ class TabletController(object):
 		for site in self.siteList:
 			default[site] = []
 
-		# doesn't work properly if length of relNameList > 1
 		for i in range(0, self.tablets):
 			qr = qstring
 			for relname in relNameList:
