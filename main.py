@@ -11,6 +11,7 @@ addServerHelpString = "Integrates the given database into the system"
 delServerHelpString = "Disintegrates the given database from the system"
 freezeSchemaString = "Freezes the schema; Can't perform any schema operations later"
 executeQueryHelpString = "Executes the given query on the integrated system"
+runHelpString = "Runs commands in the script file specified"
 loadServersConfigHelpString = "Loads configurations of sites and schema details from the given file"
 saveServersConfigHelpString = "Saves configurations of sites and schema details in the given file"
 helpHelpString = "Prints summary of all available commands"
@@ -59,6 +60,19 @@ def fExecuteQuery(args):
 	db.executeQuery(getStringFromArray(args.queryString))
 	pass
 	#usbv
+
+def fRun(args):
+	fname = args.scriptfilename
+	with open(fname, "r") as f:
+		commands = f.readlines()
+		commands = [x.strip() for x in commands]
+
+	try:
+		for x in commands:
+			args = cmdparser.parse_args(cmd_string.split(' '))
+			args.func(args)
+	except Exception as e:
+		print("Error in script file", e)
 
 def fFreeze(args):
 	# get string from args
@@ -116,6 +130,10 @@ saveServersConfigParse.add_argument('filename')
 executeQueryParse = subparsers.add_parser('execute', description=executeQueryHelpString)
 executeQueryParse.set_defaults(func=fExecuteQuery)
 executeQueryParse.add_argument('queryString', nargs="+")
+
+runParse = subparsers.add_parser('run', description=runHelpString)
+saveServersConfigParse.set_defaults(func=fRun)
+saveServersConfigParse.add_argument('scriptfilename')
 
 helpParse = subparsers.add_parser('help', description=helpHelpString)
 helpParse.set_defaults(func=fHelp)
