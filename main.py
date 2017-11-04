@@ -72,7 +72,9 @@ def fRun(args):
 			args = cmdparser.parse_args(x.split(' '))
 			args.func(args)
 	except Exception as e:
-		print("Error in script file", e)
+		print("Error in script file: ", e)
+		import traceback
+		traceback.print_exc()
 
 def fFreeze(args):
 	# get string from args

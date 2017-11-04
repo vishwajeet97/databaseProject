@@ -1,5 +1,5 @@
 import threading
-# import psycopg2 as ppg
+import psycopg2 as ppg
 import hashlib
 import random
 

@@ -231,7 +231,6 @@ class fdd(object):
 
 		stmt = root[0]["RawStmt"]["stmt"]
 		if "SelectStmt" in stmt.keys() and "targetList" in stmt["SelectStmt"]:
-
 			finalResult = self.aggregateResults(res, qString, stmt["SelectStmt"])
 		else:
 			finalResult = []
@@ -254,8 +253,16 @@ class fdd(object):
 			numberOfGroupVariables = len(selectStmt["groupClause"])
 			return self.aggregateGroupBy(res, selectStmt, numberOfGroupVariables)
 		else:
-			return self.aggregateInSelect(res, selectStmt)
+			total_target = len(selectStmt["targetList"])
+			count = 0
+			for target in selectStmt["targetList"]:
+				if "FuncCall" in target["ResTarget"]["val"]:
+					count += 1
 
+			if count == total_target:
+				return self.aggregateInSelect(res, selectStmt)
+			elif count == 0:
+				return self.aggregateBasic(res)
 
 	def aggregateGroupBy(self, res, selectStmt, numberOfGroupVariables):
 		finalResultDict = {}
@@ -347,44 +354,12 @@ class fdd(object):
 						if operation == "sum":
 							overallValList[i] = pgSum(overallValList[i],record[i])
 
-		agg_count = 0
-		avg_count = 0
-		for ResTarget in SelectStmt["targetList"]:
-			if "FuncCall" in ResTarget["ResTarget"]["val"]:
-				funcname = ResTarget["ResTarget"]["val"]["FuncCall"]["funcname"][0]["String"]["str"]
-				if funcname.lower() == "avg":
-					avg_count +=1
-				if funcname.lower() == "min" or funcname.lower() == "max" or funcname.lower() == "count" or funcname.lower() == "sum" or funcname.lower() == "avg":
-					agg_count +=1
+		return(tuple(overallValList))
 
-		numTargetVariable = len(SelectStmt["targetList"]) + avg_count
-
+	def aggregateBasic(self, res):
 		finalResult = []
-
-		if agg_count == len(SelectStmt["targetList"]):
-			insert_store = []
-			ind = 0
-			while ind < numTargetVariable:
-				insert_store.append(overallValList[ind])
-				if aggDict[ind] == "avg":
-					ind += 1
-				ind += 1
-			finalResult.append(tuple(insert_store))
-		else:
-			for siteKey, siteResult in res.items():
-				for tabletKey, tabletResult in siteResult.items():
-					for record in tabletResult:
-						insert_store = []
-						ind = 0
-						while ind < numTargetVariable:
-							if ind in aggDict.keys() and aggDict[ind] == "avg":
-								insert_store.append(aggValDict[ind])
-								ind += 1
-							elif ind in aggDict.keys():
-								insert_store.append(aggValDict[ind])
-							else:
-								insert_store.append(record[ind])
-							ind += 1
-						finalResult.append(tuple(insert_store))
+		for siteKey, siteResult in res.items():
+			for tabletKey, tabletResult in siteResult.items():
+				finalResult.extend(tabletResult)
 
 		return finalResult
