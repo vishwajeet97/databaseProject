@@ -30,53 +30,48 @@ class fdd(object):
 	def createRemoteServersAndForeignSchemas(self):
 
 		masterquery = ""
-		for siteid, server in site_dict.items():
+		snfdw = "postgres_fdw"
+
+		masterquery += " drop EXTENSION IF EXISTS " + snfdw + " cascade;"
+		masterquery += " create EXTENSION " + snfdw + ";"
+		
+		for siteid, server in self.site_dict.items():
 			if siteid == self.mastersite:
-				pass
+				continue
 
 			sn = "site" + str(siteid)
-			snfdw = sn + "_fdw"
 			snserver = sn + "_server"
 			snschema = sn
-
-			masterquery += " create EXTENSION " + snfdw + ";"
 
 			masterquery += " create SERVER " + snserver
 			masterquery += " FOREIGN DATA WRAPPER " + snfdw
 			masterquery += " OPTIONS ("
-			masterquery += " host, '" + server["host"] + "',"
-			masterquery += " port, '" + server["port"] + "',"
-			masterquery += " dbname, '" + server["database"] + "'"
+			masterquery += " host '" + server["host"] + "',"
+			masterquery += " port '" + server["port"] + "',"
+			masterquery += " dbname '" + server["database"] + "'"
 			masterquery += " );"
 
 			masterquery += " create USER MAPPING "
 			masterquery += " FOR " + self.site_dict[self.mastersite]["username"]
 			masterquery += " SERVER " + snserver
 			masterquery += " OPTIONS ("
-			masterquery += " user, '" + server["username"] + "',"
-			masterquery += " password, '" + server["password"] + "'"
+			masterquery += " user '" + server["username"] + "',"
+			masterquery += " password '" + server["password"] + "'"
 			masterquery += " );"
+
+			masterquery += " drop SCHEMA IF EXISTS " + sn + " cascade;"
+			masterquery += " create SCHEMA " + sn + ";"
 
 			masterquery += " IMPORT FOREIGN SCHEMA public"
 			masterquery += " from SERVER " + snserver
-			masterquery += " INTO " + sn + ";"
+			masterquery += " INTO " + sn + ";"	
 
-
-		print(masterquery)
-
-			
-
-		# thread = QueryDeploy(self.site_dict[self.mastersite], masterquery)
-		# thread.start()
-
-		# res = thread.join()
-
-
-
-
-
-
-		pass
+		try:
+			thread = QueryDeploy(self.site_dict[self.mastersite], masterquery)
+			thread.start()
+			res = thread.join()
+		except Exception as e:
+			print("FTable Init Error: " + e)
 
 	def reinitialiseTBC(self):
 

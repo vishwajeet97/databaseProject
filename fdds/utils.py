@@ -1,4 +1,4 @@
-import psycopg2 as ppg
+# import psycopg2 as ppg
 import subprocess
 import pickle
 import re
