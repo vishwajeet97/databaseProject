@@ -15,7 +15,7 @@ class fdd(object):
 		self.site_iterator = 0
 		self.mastersite = 0
 
-		self.tbc = TabletController(list(self.site_dict.keys()))
+		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
 		# self.schema_data = {}
 
@@ -83,7 +83,7 @@ class fdd(object):
 
 		if perm:
 			del self.tbc
-			self.tbc = TabletController(list(self.site_dict.keys()))
+			self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
 			self.createRemoteServersAndForeignSchemas()
 
@@ -99,7 +99,7 @@ class fdd(object):
 		for server in uinfo[1]:
 			self.addServer(server)
 
-		self.tbc.setMetaData(uinfo[0])
+		self.tbc.setMetaData(uinfo[0], self.site_dict)
 
 		print("List of sites: ", uinfo[1])
 		print("Schema loaded: ", uinfo[0])
@@ -141,6 +141,7 @@ class fdd(object):
 
 	def DeleteStmt(self, stmt, qString):
 		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
+		# update tuple counts in TabletController
 		pass
 
 	def DropStmt(self, stmt, qString):

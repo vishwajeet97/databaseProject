@@ -42,20 +42,42 @@ NTABLETS = 20
 
 class TabletController(object):
 	"""docstring for TabletController"""
-	def __init__(self, siteList):
+	def __init__(self, siteList, siteDict):
 		super(TabletController, self).__init__()
 		self.tablets = NTABLETS
 		self.siteList = siteList
+		self.siteDict = siteDict
 		self.master_map = {}
 		self.schema_data = {}
+		self.site_tablet_tupleCt = {}	# number of tuples in each tablet in each site
 
 		self.schema_data["stmts"] = []
 		self.schema_data["pkmetadata"] = {}
 
+	def getTupleCt(self, site, tablet_name):
+		query = "select count(*) from " + tablet_name;
+		res = QueryDeploy(site, query)
+		return res
+
 	def setMetaData(self, data):
 		self.schema_data = data[0]
 		self.master_map = data[1]
+		print("master_map")
+		print(self.master_map)
+		print("site list ")
+		print(self.siteList)
+		self.site_tablet_tupleCt = {site: {} for site in self.siteList}
+		print("initial site_tablet_tupleCt: ");
+		print(self.site_tablet_tupleCt)
+		for reln, mapping in self.master_map.items():
+			for tablet_id, site in mapping.items():
+				thread = self.getTupleCt(self.siteDict[site], reln + "_" + str(tablet_id))
+				thread.start()
+				ct = thread.join()
+				self.site_tablet_tupleCt[site][reln][tablet_id] = ct
 
+		print("updated site_tablet_tupleCt")
+		print(self.site_tablet_tupleCt)
 		# for operation in self.schema_data["stmts"]:
 		# 	self.createTabletMappingForRelation(operation["CreateStmt"])
 
@@ -192,7 +214,10 @@ class TabletController(object):
 
 			print("tablet id: ", tablet_id)
 			ret = {}
-			ret[self.master_map[relname][tablet_id]] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
+			site = self.master_map[relname][tablet_id]
+			ret[site] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
+			# update count of tuples in tablet
+			self.site_tablet_tupleCt[site][relname][tablet_id] = self.site_tablet_tupleCt[site][relname][tablet_id] + 1
 			return ret
 
 		elif "SelectStmt" in stmt.keys():
@@ -313,6 +338,11 @@ class TabletController(object):
 				qr = crn(qstring, relname, relname + "_" + str(i))
 				retmap[si].append(qr)
 
+			# initialize tuple counts
+			for reln, mapping in self.master_map.items():
+				for tablet_id, site in mapping.items():
+					self.site_tablet_tupleCt[site][relname][tablet_id] = 0
+
 			# return default
 			return retmap
 
@@ -329,6 +359,12 @@ class TabletController(object):
 					qr = "drop table " + rel + "_" + str(i)
 					retmap[si].append(qr)
 
+			# set tuple counts of dropped tables to 0
+			for reln, mapping in self.master_map.items():
+				for relName in relsname:
+					for tablet_id, site in mapping.items():
+						self.site_tablet_tupleCt[site][relName][tablet_id] = 0
+
 			# return default
 			return retmap
 
@@ -338,12 +374,17 @@ class TabletController(object):
 		
 	def createTabletMappingForRelation(self, tree):
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
-
+		relName = tree["relation"]["RangeVar"]["relname"]
 		mapping = {}
 		for i in range(0, self.tablets):
 			mapping[i] = self.siteList[i % len(self.siteList)]
 
-		self.master_map[tree["relation"]["RangeVar"]["relname"]] = mapping
+		self.master_map[relName] = mapping
+
+		for reln, mapping in self.master_map.items():
+			for tablet_id, site in mapping.items():
+				self.site_tablet_tupleCt[site][relName][tablet_id] = 0
+
 
 		# Then add this map to the master map with the relation map as the key
 		pass
