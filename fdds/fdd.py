@@ -269,55 +269,73 @@ class fdd(object):
 		return finalResult
 
 	def aggregateInSelect(self, res, SelectStmt):
-		ansList = []
-		aggVariableLoc = aggregateVariableLocator(SelectStmt, 0)
-		numTargetVariable = len(SelectStmt["targetList"])
-		index = 0
+		aggDict = aggregateVariableLocator(SelectStmt, 0)
 
-		while index < numTargetVariable:
-			if(index in aggVariableLoc.keys()):
-				funcname = aggVariableLoc[index]
-				if funcname.lower() == "min":
-					min_num = res[0][0][index]
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None and res_tuple[0][index] < min_num):
-							min_num = res_tuple[0][index]
-					ansList.append(min_num)
-				elif funcname.lower() == "max":
-					max_num = res[0][0][index]
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None and res_tuple[0][index] > max_num):
-							max_num = res_tuple[0][index]
-					ansList.append(max_num)
-				elif funcname.lower() == "count":
-					count_num = 0
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None):
-							count_num = count_num + res_tuple[0][index]
-					ansList.append(count_num)
-				elif funcname.lower() == "sum":
-					sum_num = 0
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None):
-							sum_num = sum_num + res_tuple[0][index]
-					ansList.append(sum_num)
-				elif funcname.lower() == "avg":
-					sum_num = 0
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None):
-							sum_num = sum_num + res_tuple[0][index]
-					index += 1
-					count_num = 0
-					for key, res_tuple in res.items():
-						if(res_tuple[0][index] is not None):
-							count_num = count_num + res_tuple[0][index]
-					avg_num = sum_num / count_num
-					ansList.append(avg_num)
+		overallValList = {}
+		for i, op in aggDict.items():							
+			if op == "count":
+				overallValList[i] = 0
+			elif op == "avg":
+				overallValList[i] = None							
+				overallValList[i+1] = 0
 			else:
-				ansList.append(res[0][0][index])
-			index += 1
+				overallValList[i] = None 
 
-		return ansList
+		for siteKey, siteResult in res.items():
+			for tabletKey, tabletResult in siteResult.items():
+				if len(tabletResult) > 0:
+					record = tabletResult[0]
+					for i, operation in aggDict.items():
+						if operation == "max":
+							overallValList[i] = pgMax(overallValList[i], record[i])
+						if operation == "min":
+							overallValList[i] = pgMin(overallValList[i], record[i])							
+						if operation == "count":
+							overallValList[i] += record[i]  
+						if operation == "avg":
+							overallValList[i] = pgSum(overallValList[i],record[i])							
+							overallValList[i+1] += record[i+1]
+						if operation == "sum":
+							overallValList[i] = pgSum(overallValList[i],record[i])
 
+		agg_count = 0
+		avg_count = 0
+		for ResTarget in SelectStmt["targetList"]:
+			if "FuncCall" in ResTarget["ResTarget"]["val"]:
+				funcname = ResTarget["ResTarget"]["val"]["FuncCall"]["funcname"][0]["String"]["str"]
+				if funcname.lower() == "avg":
+					avg_count +=1
+				if funcname.lower() == "min" or funcname.lower() == "max" or funcname.lower() == "count" or funcname.lower() == "sum" or funcname.lower() == "avg":
+					agg_count +=1
 
+		numTargetVariable = len(SelectStmt["targetList"]) + avg_count
 
+		finalResult = []
+
+		if agg_count == len(SelectStmt["targetList"]):
+			insert_store = []
+			ind = 0
+			while ind < numTargetVariable:
+				insert_store.append(overallValList[ind])
+				if aggDict[ind] == "avg":
+					ind += 1
+				ind += 1
+			finalResult.append(tuple(insert_store))
+		else:
+			for siteKey, siteResult in res.items():
+				for tabletKey, tabletResult in siteResult.items():
+					for record in tabletResult:
+						insert_store = []
+						ind = 0
+						while ind < numTargetVariable:
+							if ind in aggDict.keys() and aggDict[ind] == "avg":
+								insert_store.append(aggValDict[ind])
+								ind += 1
+							elif ind in aggDict.keys():
+								insert_store.append(aggValDict[ind])
+							else:
+								insert_store.append(record[ind])
+							ind += 1
+						finalResult.append(tuple(insert_store))
+
+		return finalResult
