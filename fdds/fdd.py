@@ -13,6 +13,7 @@ class fdd(object):
 		self.site_dict = {}
 		self.query_site = {}
 		self.site_iterator = 0
+		self.mastersite = 0
 
 		self.tbc = TabletController(list(self.site_dict.keys()))
 
@@ -26,6 +27,57 @@ class fdd(object):
 		table = [[server["host"], server["port"], server["database"], server["username"], server["password"]] for key, server in self.site_dict.items()]
 		print(tabulate(table, headers=["Host", "Port", "Database", "Username", "Password"], tablefmt="psql"))
 
+	def createRemoteServersAndForeignSchemas(self):
+
+		masterquery = ""
+		for siteid, server in site_dict.items():
+			if siteid == self.mastersite:
+				pass
+
+			sn = "site" + str(siteid)
+			snfdw = sn + "_fdw"
+			snserver = sn + "_server"
+			snschema = sn
+
+			masterquery += " create EXTENSION " + snfdw + ";"
+
+			masterquery += " create SERVER " + snserver
+			masterquery += " FOREIGN DATA WRAPPER " + snfdw
+			masterquery += " OPTIONS ("
+			masterquery += " host, '" + server["host"] + "',"
+			masterquery += " port, '" + server["port"] + "',"
+			masterquery += " dbname, '" + server["database"] + "'"
+			masterquery += " );"
+
+			masterquery += " create USER MAPPING "
+			masterquery += " FOR " + self.site_dict[self.mastersite]["username"]
+			masterquery += " SERVER " + snserver
+			masterquery += " OPTIONS ("
+			masterquery += " user, '" + server["username"] + "',"
+			masterquery += " password, '" + server["password"] + "'"
+			masterquery += " );"
+
+			masterquery += " IMPORT FOREIGN SCHEMA public"
+			masterquery += " from SERVER " + snserver
+			masterquery += " INTO " + sn + ";"
+
+
+		print(masterquery)
+
+			
+
+		# thread = QueryDeploy(self.site_dict[self.mastersite], masterquery)
+		# thread.start()
+
+		# res = thread.join()
+
+
+
+
+
+
+		pass
+
 	def reinitialiseTBC(self):
 
 		perm = True
@@ -37,6 +89,8 @@ class fdd(object):
 		if perm:
 			del self.tbc
 			self.tbc = TabletController(list(self.site_dict.keys()))
+
+			self.createRemoteServersAndForeignSchemas()
 
 	def addServer(self, userver):
 		# add server to the list of sites
