@@ -71,6 +71,7 @@ class TabletController(object):
 		print(self.site_tablet_tupleCt)
 		for reln, mapping in self.master_map.items():
 			for tablet_id, site in mapping.items():
+				self.site_tablet_tupleCt[site][reln] = {}
 				thread = self.getTupleCt(self.siteDict[site], reln + "_" + str(tablet_id))
 				thread.start()
 				ct = thread.join()
