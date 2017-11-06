@@ -99,7 +99,7 @@ class fdd(object):
 		for server in uinfo[1]:
 			self.addServer(server)
 
-		self.tbc.setMetaData(uinfo[0], self.site_dict)
+		self.tbc.setMetaData(uinfo[0])
 
 		print("List of sites: ", uinfo[1])
 		print("Schema loaded: ", uinfo[0])

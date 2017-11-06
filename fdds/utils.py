@@ -93,6 +93,8 @@ def moveTablets(fromSite, toSite, tableName):
 
 def changeRelNameInQuery(querys, cname, tname):
 	querys = querys.replace(" " + cname + " ", " " + tname + " ")
+	if querys.endswith(" " + cname):
+		querys = querys.replace(" " + cname, " " + tname)
 	querys = querys.replace(" " + cname + "(", " " + tname + "(")
 	querys = querys.replace(" " + cname + ".", " " + tname + ".")
 	return querys

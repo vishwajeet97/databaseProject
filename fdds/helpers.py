@@ -168,6 +168,7 @@ class TabletController(object):
 				si = self.master_map[relname][i]
 				default[si].append(qr)
 
+		print("default")
 		print(default)
 
 		if "InsertStmt" in stmt.keys():
@@ -380,6 +381,12 @@ class TabletController(object):
 			mapping[i] = self.siteList[i % len(self.siteList)]
 
 		self.master_map[relName] = mapping
+
+		print(self.master_map)
+
+		for tablet_id, site in mapping.items():
+			self.site_tablet_tupleCt[site] = {}
+			self.site_tablet_tupleCt[site][relName] = {}
 
 		for reln, mapping in self.master_map.items():
 			for tablet_id, site in mapping.items():
