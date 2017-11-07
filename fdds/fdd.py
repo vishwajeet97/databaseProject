@@ -85,7 +85,7 @@ class fdd(object):
 			del self.tbc
 			self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
-			self.createRemoteServersAndForeignSchemas()
+			# self.createRemoteServersAndForeignSchemas()
 
 	def addServer(self, userver):
 		# add server to the list of sites
@@ -354,8 +354,9 @@ class fdd(object):
 							overallValList[i+1] += record[i+1]
 						if operation == "sum":
 							overallValList[i] = pgSum(overallValList[i],record[i])
-
-		return(tuple(overallValList))
+		import operator
+		a = [ y for x, y in sorted(overallValList.items(), key=operator.itemgetter(0) )]
+		return(list(tuple(a)))
 
 	def aggregateBasic(self, res):
 		finalResult = []
