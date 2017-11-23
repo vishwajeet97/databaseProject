@@ -2,7 +2,8 @@ from pg_query import Node, parse_sql, parser
 from tabulate import tabulate
 from .helpers import QueryDeploy
 from .helpers import TabletController
-from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator, pgSum, pgMax, pgMin, pgAvg
+from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator, pgSum, pgMax, pgMin, pgAvg, printer
+
 import json
 import psycopg2 as ppg
 
@@ -43,9 +44,9 @@ class fdd(object):
 						cur.execute(stmt)
 						res = cur.fetchall()
 				except ppg.Error as e:
-					print(e)
+					printer("Metadata Creation Error", e)
 				except ppg.ProgrammingError as e:
-					print(e)
+					printer("Metadata Creation Error", e)
 
 	def initializeMetadata(self):	# initialize system state on start up
 		init_sites = "select * from site_info"
@@ -97,6 +98,11 @@ class fdd(object):
 		table = [[server["host"], server["port"], server["database"], server["username"], server["password"]] for key, server in self.site_dict.items()]
 		print(tabulate(table, headers=["Host", "Port", "Database", "Username", "Password"], tablefmt="psql"))
 
+
+	def displayResult(self, result, colName):
+		table = [[x for x in tup] for tup in result]
+		print(tabulate(table, headers=colName, tablefmt="psql"))
+
 	def createRemoteServersAndForeignSchemas(self):
 
 		masterquery = ""
@@ -134,7 +140,7 @@ class fdd(object):
 			thread.start()
 			res = thread.join()
 		except Exception as e:
-			print("FTable Init Error: " + e)
+			printer("FTable Init Error", e)
 
 	def reinitialiseTBC(self):
 
@@ -168,8 +174,8 @@ class fdd(object):
 
 		self.tbc.setMetaData(uinfo[0])
 
-		print("List of sites: ", uinfo[1])
-		print("Schema loaded: ", uinfo[0])
+		printer("Debug", "List of sites: " +  str(uinfo[1]))
+		printer("Debug", "Schema loaded: " + str(uinfo[0]))
 
 	def getConfig(self):
 		return [self.tbc.getMetaData(), list(self.site_dict.values())]
@@ -192,10 +198,8 @@ class fdd(object):
 			pass
 		else:
 			qString = changeAvgInQueryToSumCount(qString)
-			print(qString)
 			if("groupClause" in stmt["SelectStmt"].keys()):
 				qString = insertIntoSelectFromGroupby(qString)
-			print(qString)
 			self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		
 	def InsertStmt(self, stmt, qString):
@@ -230,11 +234,7 @@ class fdd(object):
 
 	def executeQuery(self, qString):
 		# form the parse tree
-		try:
-			root = parse_sql(qString)
-		except parser.ParseError as e:
-			print(e)
-			return
+		root = parse_sql(qString)
 
 		qj = json.dumps(root, indent=4)
 		# print(qj)
@@ -262,6 +262,7 @@ class fdd(object):
 			elif "CreateStmt" in stmt.keys():
 				self.CreateStmt(stmt, qString)
 		else:
+			printer("Error", "Enter only one query at a time")
 			return
 
 		# mux based on type of query
@@ -274,13 +275,14 @@ class fdd(object):
 
 		# save QueryDeploy objects in array
 		threads = {}
+		description = []
 		# print(self.site_dict)
 		for key, squery in self.query_site.items():
 			threads[key] = {}
 			for i, iquery in enumerate(squery):
 				threads[key][i] = QueryDeploy(self.site_dict[key], iquery)
 				threads[key][i].start()
-			print(key, squery)
+			printer("Debug", str(key) + str(squery))
 
 		self.query_site.clear()
 
@@ -289,13 +291,16 @@ class fdd(object):
 			res[key] = {}
 			for ind, thread in sitethreads.items():
 				res[key][ind] = thread.join()
+			for ind, thread in sitethreads.items():
+				description = thread.returnDescription()
+				break
 
-		print("Site-wise Query-wise Results")
+		printer("Debug", "Site-wise Query-wise Results")
 		# take union of resultsets
 		for key, result in res.items():
-			print(key, result)
+			printer("Debug", str(key) + str(result))
 
-		print("Aggregated Results")
+		printer("Debug", "Aggregated Results")
 
 		stmt = root[0]["RawStmt"]["stmt"]
 		if "SelectStmt" in stmt.keys() and "targetList" in stmt["SelectStmt"]:
@@ -303,7 +308,7 @@ class fdd(object):
 		else:
 			finalResult = []
 
-		print(finalResult)
+		self.displayResult(finalResult, description)
 		pass
 
 	def aggregateResults(self, res, qString, selectStmt):
@@ -317,7 +322,6 @@ class fdd(object):
 		# otherwise check if the select has aggregate functions if yes then call aggregate select functions
 		# otherwise call the aggregate normal functions
 		if "groupClause" in selectStmt.keys():
-			print(len(selectStmt["groupClause"]))
 			numberOfGroupVariables = len(selectStmt["groupClause"])
 			return self.aggregateGroupBy(res, selectStmt, numberOfGroupVariables)
 		else:
@@ -335,13 +339,11 @@ class fdd(object):
 	def aggregateGroupBy(self, res, selectStmt, numberOfGroupVariables):
 		finalResultDict = {}
 		aggDict = aggregateVariableLocator(selectStmt, numberOfGroupVariables)
-		print(aggDict)
 		for siteKey, siteResult in res.items():
 			for tabletKey, tabletResult in siteResult.items():
 				for record in tabletResult:
 					groupList = []
 					recordList = []
-					print(record)
 					for i in range(0, len(record)):
 						if i < numberOfGroupVariables:
 							groupList.append(record[i])
@@ -349,7 +351,6 @@ class fdd(object):
 							recordList.append(record[i])
 
 					groupTuple = tuple(groupList)
-					print(groupTuple)
 
 					if groupTuple not in finalResultDict.keys():
 						finalResultDict[groupTuple] = recordList
@@ -373,7 +374,6 @@ class fdd(object):
 					finalResultDict[groupTuple] = recordOldList
 
 		finalResult = []
-		print(finalResultDict)
 
 		for keys, record in finalResultDict.items():
 			recordList = []

@@ -3,6 +3,8 @@ import subprocess
 import pickle
 import re
 
+debug = True
+
 class parser(object):
 	"""docstring for parser"""
 	def __init__(self):
@@ -28,6 +30,10 @@ class parser(object):
 
 	def writeIntoFile(self, filename, obj):
 		pickle.dump(obj, open(filename, "wb"))
+
+def printer(typ, string):
+	if (typ != "Debug") or (typ == "Debug" and debug):
+		print(typ + ": ", string)
 
 def moveTablets(fromSite, toSite, tableName):
 	"""

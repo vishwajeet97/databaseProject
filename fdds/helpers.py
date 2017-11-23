@@ -29,15 +29,20 @@ class QueryDeploy(threading.Thread):
 				with conn.cursor() as cur:
 					cur.execute(self.query)
 					res = cur.fetchall()
+					colName = [desc[0] for desc in cur.description]
 			except ppg.Error as e:
 				print(e)
 			except ppg.ProgrammingError as e:
 				print(e)
 		self.res = res
+		self.colName = colName
 
 	def join(self):
 		super(QueryDeploy, self).join()
 		return self.res
+
+	def returnDescription(self):
+		return self.colName
 
 NTABLETS = 20
 
