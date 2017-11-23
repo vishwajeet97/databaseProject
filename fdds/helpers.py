@@ -74,7 +74,8 @@ class TabletController(object):
 		print(self.master_map)
 		print("site list ")
 		print(self.siteList)
-		self.site_tablet_tupleCt = {site: {} for site in self.siteList}
+		
+		'''self.site_tablet_tupleCt = {site: {} for site in self.siteList}
 		print("initial site_tablet_tupleCt: ");
 		print(self.site_tablet_tupleCt)
 		for reln, mapping in self.master_map.items():
@@ -86,14 +87,15 @@ class TabletController(object):
 				self.site_tablet_tupleCt[site][reln][tablet_id] = ct
 
 		print("updated site_tablet_tupleCt")
-		print(self.site_tablet_tupleCt)
+		print(self.site_tablet_tupleCt)'''
+		
 		# for operation in self.schema_data["stmts"]:
 		# 	self.createTabletMappingForRelation(operation["CreateStmt"])
 
 	def getMetaData(self):
 		return [ self.schema_data, self.master_map ]
 
-	def createTableMetaData(self, stmt):
+	def createTableMetaData(self, stmt, masterserver):
 
 		self.schema_data["stmts"].append(stmt)
 
@@ -119,6 +121,7 @@ class TabletController(object):
 					if item["ColumnDef"]["colname"] in pknamelist:
 						index_name = (count, item["ColumnDef"]["colname"])
 						pkarray.append(index_name)
+
 				else:
 					if "constraints" in item["ColumnDef"].keys():
 						for cons in item["ColumnDef"]["constraints"]:
@@ -130,7 +133,22 @@ class TabletController(object):
 
 		self.schema_data["pkmetadata"][relname] = pkarray
 
-		self.createTabletMappingForRelation(stmt["CreateStmt"])		
+		# insert relation in relations table
+		insert_reln = "insert into relations values ('%s')"
+		thread = QueryDeploy(masterserver, insert_reln%relname)
+		thread.start()
+		thread.join()
+
+		# insert only primary key attributes into relation_info
+
+		for pk in pkarray:
+			insert_attr = "insert into relation_info values ('%s', %d, '%s', %s)"
+			thread = QueryDeploy(masterserver, insert_attr%(pk[1], pk[0], relname, "true"))
+			thread.start()
+			thread.join()
+
+		self.createTabletMappingForRelation(stmt["CreateStmt"], masterserver)
+
 
 	def hashFunction(self, key):
 		encoded_key = key.encode('utf-8')
@@ -220,8 +238,10 @@ class TabletController(object):
 		print("master map")
 		print(self.master_map)
 		default = {}
+		print("siteList")
 		for site in self.siteList:
 			default[site] = []
+		print(self.siteList)
 
 		for i in range(0, self.tablets):
 			qr = qstring
@@ -418,6 +438,7 @@ class TabletController(object):
 				for tablet_id, site in mapping.items():
 					self.site_tablet_tupleCt[site][relname][tablet_id] = 0
 
+			# update 
 			# return default
 			return retmap
 
@@ -434,6 +455,10 @@ class TabletController(object):
 					qr = "drop table " + rel + "_" + str(i)
 					retmap[si].append(qr)
 
+			for rel in relsname:
+				del self.master_map[rel]
+				del self.schema_data["pkmetadata"][rel]
+
 			# set tuple counts of dropped tables to 0
 			for reln, mapping in self.master_map.items():
 				for relName in relsname:
@@ -447,7 +472,7 @@ class TabletController(object):
 			print(default)
 			return default
 		
-	def createTabletMappingForRelation(self, tree):
+	def createTabletMappingForRelation(self, tree, masterserver):
 		# If not create an entry of the mapping between (tableid, siteid) for the relation
 		relName = tree["relation"]["RangeVar"]["relname"]
 		mapping = {}
@@ -455,6 +480,17 @@ class TabletController(object):
 			mapping[i] = self.siteList[i % len(self.siteList)]
 
 		self.master_map[relName] = mapping
+
+		# insert into tablet_info table
+		pwd = ''
+		if masterserver["password"] is not None:
+			pwd = masterserver["password"]
+		update_tablet_stmt = "insert into tablet_info values ('%s', %d, '%s', '%s', '%s', '%s', '%s', %d)"
+		for tablet_num, site_index in mapping.items():
+			server = self.siteDict[site_index]
+			thread = QueryDeploy(masterserver, update_tablet_stmt%(relName, tablet_num, server["host"], server["port"], server["database"], server["username"], pwd, 0))	
+			thread.start()
+			thread.join()
 
 		print(self.master_map)
 
@@ -466,6 +502,4 @@ class TabletController(object):
 			for tablet_id, site in mapping.items():
 				self.site_tablet_tupleCt[site][relName][tablet_id] = 0
 
-
-		# Then add this map to the master map with the relation map as the key
-		pass
+		

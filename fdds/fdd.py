@@ -28,8 +28,8 @@ class fdd(object):
 	def createMetadataSchema(self):
 		create_site_info = "create table site_info (host varchar, port varchar, database varchar, username varchar, password varchar, primary key(host, port, database, username, password))"
 		create_relations = "create table relations (relation_name varchar primary key)"
-		create_relation_info = "create table relation_info (attribute_name varchar, attribute_index integer, relation_name varchar, is_pk boolean, primary key(attribute_name, relation_name), foreign key(relation_name) references relations)"
-		create_tablet_info = "create table tablet_info (relation_name varchar, tablet_number integer, host varchar, port varchar, database varchar, username varchar, password varchar, tuple_count integer, primary key(relation_name, tablet_number), foreign key(relation_name) references relations, foreign key(host, port, database, username, password) references site_info)"
+		create_relation_info = "create table relation_info (attribute_name varchar, attribute_index integer, relation_name varchar, is_pk boolean, primary key(attribute_name, relation_name), foreign key(relation_name) references relations on delete cascade)"
+		create_tablet_info = "create table tablet_info (relation_name varchar, tablet_number integer, host varchar, port varchar, database varchar, username varchar, password varchar, tuple_count integer, primary key(relation_name, tablet_number), foreign key(relation_name) references relations on delete cascade, foreign key(host, port, database, username, password) references site_info)"
 		create_stmt_list  = [create_site_info, create_relations, create_relation_info, create_tablet_info]
 		for stmt in create_stmt_list:
 			with ppg.connect(
@@ -67,7 +67,7 @@ class fdd(object):
 
 		pk_dict = {}
 		for reln in relns:
-			init_pkmetadata ="select attribute_index, attribute_name from relation_info where relation_name = %s and is_pk = true"
+			init_pkmetadata ="select attribute_index, attribute_name from relation_info where relation_name = '%s' and is_pk = true"
 			thread = QueryDeploy(self.masterserver, init_pkmetadata%(reln[0]))
 			thread.start()
 			attr_index_name = thread.join()
@@ -76,7 +76,7 @@ class fdd(object):
 		master_map = {}
 		for reln in relns:
 			master_map[reln[0]]={}
-			get_tablet_site = "select tablet_number, host, port, database, username, password from tablet_info where relation_name = %s"
+			get_tablet_site = "select tablet_number, host, port, database, username, password from tablet_info where relation_name = '%s'"
 			thread = QueryDeploy(self.masterserver, get_tablet_site%(reln[0]))
 			thread.start()
 			tablet_site = thread.join()
@@ -90,7 +90,15 @@ class fdd(object):
 		data[0]["stmts"] = []
 		data[0]["pkmetadata"] = pk_dict
 		data[1] = master_map
+		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 		self.tbc.setMetaData(data)
+
+		print("initializeMetadata")
+		print(self.site_dict)
+		print(relns)
+		print(pk_dict)
+		print(master_map)
+
 		
 
 	def displayServers(self):
@@ -144,17 +152,16 @@ class fdd(object):
 
 	def reinitialiseTBC(self):
 
-		perm = True
-		if len(self.tbc.getMetaData()[0]["stmts"]) != 0:
-			inp = input("WARNING: All schema data will be lost. Continue? (y/n) ")
-			if inp != "Y" and inp != "y":
-				perm == False
+		# perm = True
+		# if len(self.tbc.getMetaData()[0]["stmts"]) != 0:
+		# 	inp = input("WARNING: All schema data will be lost. Continue? (y/n) ")
+		# 	if inp != "Y" and inp != "y":
+		# 		perm == False
 
-		if perm:
-			del self.tbc
-			self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
-
-			self.createRemoteServersAndForeignSchemas()
+		# if perm:
+		del self.tbc
+		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
+		self.createRemoteServersAndForeignSchemas()
 
 	def setMasterServer(self, userver):
 		self.masterserver = userver
@@ -162,9 +169,18 @@ class fdd(object):
 
 	def addServer(self, userver):
 		# add server to the list of sites
+		self.site_iterator = len(self.site_dict.items())
 		self.site_dict[self.site_iterator] = userver
 		self.site_iterator += 1
+		if len(userver["password"]) > 0:
+			update_site_info = "insert into site_info values ('%s', %s, '%s', '%s', '%s')"
+			thread = QueryDeploy(self.masterserver, update_site_info%(userver["host"], userver["port"], userver["database"], userver["username"], userver["password"]))
+		else:
+			update_site_info = "insert into site_info values ('%s', %s, '%s', '%s', '')"
+			thread = QueryDeploy(self.masterserver, update_site_info%(userver["host"], userver["port"], userver["database"], userver["username"]))
 
+		thread.start()
+		res = thread.join()
 		# update the tablet controller
 		self.reinitialiseTBC()
 
@@ -181,10 +197,18 @@ class fdd(object):
 		return [self.tbc.getMetaData(), list(self.site_dict.values())]
 
 	def deleteServer(self, userver):
+		print(userver)
 		# delete server from the list of sites
-		for key, server in self.site_dict.items():
+		for key in self.site_dict.keys():
+			server = self.site_dict[key]
 			if server["host"] == userver["host"] and server["port"] == userver["port"] and server["database"] == userver["database"]:
 				del self.site_dict[key]
+				break
+
+		update_site_info = "delete from site_info where host = '%s' and port = '%s' and database = '%s'"
+		thread = QueryDeploy(self.masterserver, update_site_info%(userver["host"], userver["port"], userver["database"]))
+		thread.start()
+		res = thread.join()
 		
 		# update the tablet controller
 		self.reinitialiseTBC()
@@ -218,14 +242,23 @@ class fdd(object):
 	def DropStmt(self, stmt, qString):
 		# modify tablet controller after parsing
 		# for site in list(self.site_dict.keys()):
-			# self.query_site[site] = [qString]
+		# self.query_site[site] = [qString]
+
+		# - assuming only one relation is being dropped
+		relsname = [ x["String"]["str"] for x in stmt["DropStmt"]["objects"][0] ]
+		update_relation_info = "delete from relations where relation_name = '%s'"
+		for rel in relsname:
+			thread = QueryDeploy(self.masterserver, update_relation_info%rel)
+			thread.start()
+			thread.join()
+		
 		self.query_site = self.tbc.getSiteQueryMapping(stmt, qString)
 		pass
 
 	def CreateStmt(self, stmt, qString):
 		# create tablet controller after parsing
 
-		self.tbc.createTableMetaData(stmt)
+		self.tbc.createTableMetaData(stmt, self.masterserver)
 		
 		# for site in list(self.site_dict.keys()):
 			# self.query_site[site] = [qString]

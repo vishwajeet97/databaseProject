@@ -18,11 +18,15 @@ class parser(object):
 		userver["database"] = args.database
 		if hasattr(args, "username"):
 			userver["username"] = args.username
+		else:
+			userver["username"] = ""
 		if hasattr(args, "password"):
 			if args.password is None:
 				userver["password"] = ""
 			else:
 				userver["password"] = args.password
+		else:
+			userver["password"] = ""
 		return userver
 
 	def readFromFile(self, filename):
