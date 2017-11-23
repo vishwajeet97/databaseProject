@@ -91,6 +91,18 @@ def moveTablets(fromSite, toSite, tableName):
 
 	# print(res)
 
+def getRelationNameListR(subtree):
+	retList = []
+
+	for expr, subexpr in subtree.items():
+		if expr == "JoinExpr":
+			retList.extend(getRelationNameListR(subexpr["larg"]))
+			retList.extend(getRelationNameListR(subexpr["rarg"]))
+		elif expr == "RangeVar":
+			retList.append(subexpr["relname"])
+
+	return retList
+
 def changeRelNameInQuery(querys, cname, tname):
 	querys = querys.replace(" " + cname + " ", " " + tname + " ")
 	if querys.endswith(" " + cname):

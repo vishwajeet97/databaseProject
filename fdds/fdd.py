@@ -60,13 +60,6 @@ class fdd(object):
 			masterquery += " password '" + server["password"] + "'"
 			masterquery += " );"
 
-			masterquery += " drop SCHEMA IF EXISTS " + sn + " cascade;"
-			masterquery += " create SCHEMA " + sn + ";"
-
-			masterquery += " IMPORT FOREIGN SCHEMA public"
-			masterquery += " from SERVER " + snserver
-			masterquery += " INTO " + sn + ";"	
-
 		try:
 			thread = QueryDeploy(self.site_dict[self.mastersite], masterquery)
 			thread.start()
@@ -86,7 +79,7 @@ class fdd(object):
 			del self.tbc
 			self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
-			# self.createRemoteServersAndForeignSchemas()
+			self.createRemoteServersAndForeignSchemas()
 
 	def setMasterServer(self, userver):
 		self.masterserver = userver

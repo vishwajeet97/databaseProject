@@ -4,6 +4,7 @@ import hashlib
 import random
 
 from .utils import changeRelNameInQuery as crn
+from .utils import getRelationNameListR
 
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""
@@ -53,6 +54,8 @@ class TabletController(object):
 
 		self.schema_data["stmts"] = []
 		self.schema_data["pkmetadata"] = {}
+
+		self.mastersite = 0
 
 	def getTupleCt(self, site, tablet_name):
 		query = "select count(*) from " + tablet_name;
@@ -136,8 +139,7 @@ class TabletController(object):
 		elif "SelectStmt" in stmt.keys():
 			from_list = stmt["SelectStmt"]["fromClause"]
 			for from_item in from_list:
-				relName = from_item["RangeVar"]["relname"]
-				relNameList.append(relName)
+				relNameList.extend(getRelationNameListR(from_item))
 		elif "CreateStmt" in stmt.keys():
 			relName = stmt["CreateStmt"]["relation"]["RangeVar"]["relname"]
 			relNameList.append(relName)
@@ -147,6 +149,60 @@ class TabletController(object):
 		
 		return relNameList
 
+	def joinQueryBuilder(self, qstring, from_list):
+
+		joinQuery = ""
+
+		# import schema
+		for siteid in self.siteList:
+			if siteid == self.mastersite:
+				continue
+
+			sn = "site" + str(siteid)
+			snserver = sn + "_server"
+			snschema = sn
+
+			joinQuery += " drop SCHEMA IF EXISTS " + sn + " cascade;"
+			joinQuery += " create SCHEMA " + sn + ";"
+
+			joinQuery += " IMPORT FOREIGN SCHEMA public"
+			joinQuery += " from SERVER " + snserver
+			joinQuery += " INTO " + sn + ";"	
+
+		# build relations
+		relations = []
+		for d in from_list:
+			relations.extend(getRelationNameListR(d))
+
+		joinQuery += "with "
+
+		for relation in relations:
+			
+			joinQuery += relation + " as ("
+
+			for i, ( tid, siteid ) in enumerate(self.master_map[relation].items()):
+
+				tblname = relation + "_" + str(tid)
+				if siteid != self.mastersite:
+					scname = "site" + str(siteid)
+					tblname = scname + "." + tblname
+
+				temp = "( select * from " + tblname + " )"
+
+				if i != 0:
+					joinQuery += " union "
+
+				joinQuery += temp
+			
+			joinQuery += ") , "
+
+		joinQuery = joinQuery[0:-2]
+
+		# append qstring
+		joinQuery += qstring
+
+		print("Join Query Build: ", relations, joinQuery)
+		return joinQuery
 
 	def getSiteQueryMapping(self, stmt, qstring):
 		# Parse insert tree to get primary key, relation
@@ -169,8 +225,14 @@ class TabletController(object):
 				si = self.master_map[relname][i]
 				default[si].append(qr)
 
-		print("default")
+		# print("default")
 		print(default)
+
+		aggreg_default = {}
+		aggreg_default[self.mastersite] = []
+
+		print("aggreg_default")
+		print(aggreg_default)
 
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
@@ -219,13 +281,15 @@ class TabletController(object):
 			site = self.master_map[relname][tablet_id]
 			ret[site] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
 			# update count of tuples in tablet
-			self.site_tablet_tupleCt[site][relname][tablet_id] = self.site_tablet_tupleCt[site][relname][tablet_id] + 1
+			# self.site_tablet_tupleCt[site][relname][tablet_id] = self.site_tablet_tupleCt[site][relname][tablet_id] + 1
 			return ret
 
 		elif "SelectStmt" in stmt.keys():
 			from_list = stmt["SelectStmt"]["fromClause"]
-			if len(from_list) > 1:
-				return default
+
+			if len(from_list) > 1 or ("JoinExpr" in [list(x.keys())[0] for x in from_list]):
+				aggreg_default[self.mastersite].append(self.joinQueryBuilder(qstring, from_list));
+				return aggreg_default
 
 			relname = from_list[0]["RangeVar"]["relname"]
 			if "whereClause" not in stmt["SelectStmt"].keys():
