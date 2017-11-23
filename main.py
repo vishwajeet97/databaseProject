@@ -3,6 +3,7 @@ from fdds.utils import parser
 import argparse
 import sys
 import signal
+from fdds.helpers import QueryDeploy
 
 APPLICATION_NAME = "fdds v1"
 
@@ -34,6 +35,14 @@ def fDispServer(args):
 def fMasterServer(args):
 	userver = psr.createServerFromArgs(args)
 	db.setMasterServer(userver)
+	check_metadata = "select relname from pg_class where relname='site_info'"
+	thread = QueryDeploy(db.masterserver, check_metadata)
+	thread.start()
+	res = thread.join()
+	if len(res) == 0:
+		db.createMetadataSchema()
+	else:
+		db.initializeMetadata()
 	pass
 
 def fAddServer(args):
@@ -164,6 +173,9 @@ def main():
 	while True:
 		print("")
 		cmd_string = input("fdds$ ")
+		# read master database
+
+
 		try:
 			args = cmdparser.parse_args(cmd_string.split(' '))
 			args.func(args)

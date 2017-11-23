@@ -4,6 +4,7 @@ from .helpers import QueryDeploy
 from .helpers import TabletController
 from .utils import changeAvgInQueryToSumCount, insertIntoSelectFromGroupby, aggregateVariableLocator, pgSum, pgMax, pgMin, pgAvg
 import json
+import psycopg2 as ppg
 
 class fdd(object):
 	"""docstring for fdd"""
@@ -22,6 +23,74 @@ class fdd(object):
 
 		# self.schema_data["stmts"] = list()
 		# self.schema_data["pkmetadata"] = {
+
+	def createMetadataSchema(self):
+		create_site_info = "create table site_info (host varchar, port varchar, database varchar, username varchar, password varchar, primary key(host, port, database, username, password))"
+		create_relations = "create table relations (relation_name varchar primary key)"
+		create_relation_info = "create table relation_info (attribute_name varchar, attribute_index integer, relation_name varchar, is_pk boolean, primary key(attribute_name, relation_name), foreign key(relation_name) references relations)"
+		create_tablet_info = "create table tablet_info (relation_name varchar, tablet_number integer, host varchar, port varchar, database varchar, username varchar, password varchar, tuple_count integer, primary key(relation_name, tablet_number), foreign key(relation_name) references relations, foreign key(host, port, database, username, password) references site_info)"
+		create_stmt_list  = [create_site_info, create_relations, create_relation_info, create_tablet_info]
+		for stmt in create_stmt_list:
+			with ppg.connect(
+				host=self.masterserver["host"],
+				port=self.masterserver["port"],
+				dbname=self.masterserver["database"],
+				user=self.masterserver["username"],
+				password=self.masterserver["password"]
+			) as conn:
+				try:
+					with conn.cursor() as cur:
+						cur.execute(stmt)
+						res = cur.fetchall()
+				except ppg.Error as e:
+					print(e)
+				except ppg.ProgrammingError as e:
+					print(e)
+
+	def initializeMetadata(self):	# initialize system state on start up
+		init_sites = "select * from site_info"
+		thread = QueryDeploy(self.masterserver, init_sites)
+		thread.start()
+		sites = thread.join() # list of tuples
+		# check:
+		site_index_dict = {}
+		for i, site in enumerate(sites):
+			server_dict = dict(zip(["host", "port", "database", "username", "password"], list(site)))
+			self.site_dict[i] = server_dict
+			site_index_dict[site] = i
+
+		get_relations = "select * from relations"
+		thread = QueryDeploy(self.masterserver, get_relations)
+		thread.start()
+		relns = thread.join()
+
+		pk_dict = {}
+		for reln in relns:
+			init_pkmetadata ="select attribute_index, attribute_name from relation_info where relation_name = %s and is_pk = true"
+			thread = QueryDeploy(self.masterserver, init_pkmetadata%(reln[0]))
+			thread.start()
+			attr_index_name = thread.join()
+			pk_dict[reln[0]] = attr_index_name
+
+		master_map = {}
+		for reln in relns:
+			master_map[reln[0]]={}
+			get_tablet_site = "select tablet_number, host, port, database, username, password from tablet_info where relation_name = %s"
+			thread = QueryDeploy(self.masterserver, get_tablet_site%(reln[0]))
+			thread.start()
+			tablet_site = thread.join()
+			for t in tablet_site:
+				site_index = site_index_dict[t[1:]]
+				master_map[reln[0]][t[0]] = site_index
+
+		# initialize tablet controller
+		data = {}
+		data[0] = {}
+		data[0]["stmts"] = []
+		data[0]["pkmetadata"] = pk_dict
+		data[1] = master_map
+		self.tbc.setMetaData(data)
+		
 
 	def displayServers(self):
 		# prints the list of sites included in the system
