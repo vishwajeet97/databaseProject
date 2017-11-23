@@ -8,6 +8,7 @@ APPLICATION_NAME = "fdds v1"
 
 dispServerHelpString = "Displays all the intergrated child databases"
 addServerHelpString = "Integrates the given database into the system"
+masterServerHelpString = "Sets the master server to the argument"
 delServerHelpString = "Disintegrates the given database from the system"
 freezeSchemaString = "Freezes the schema; Can't perform any schema operations later"
 executeQueryHelpString = "Executes the given query on the integrated system"
@@ -28,6 +29,11 @@ def getStringFromArray(arg):
 
 def fDispServer(args):
 	db.displayServers()
+	pass
+
+def fMasterServer(args):
+	userver = psr.createServerFromArgs(args)
+	db.setMasterServer(userver)
 	pass
 
 def fAddServer(args):
@@ -103,6 +109,14 @@ subparsers = cmdparser.add_subparsers()
 
 dispServerParse = subparsers.add_parser('display', description=dispServerHelpString)
 dispServerParse.set_defaults(func=fDispServer)
+
+masterServerParse = subparsers.add_parser('master', description=masterServerHelpString)
+masterServerParse.set_defaults(func=fMasterServer)
+masterServerParse.add_argument('host')
+masterServerParse.add_argument('port')
+masterServerParse.add_argument('database')
+masterServerParse.add_argument('username')
+masterServerParse.add_argument('--password')
 
 addServerParse = subparsers.add_parser('add', description=addServerHelpString)
 addServerParse.set_defaults(func=fAddServer)

@@ -14,6 +14,7 @@ class fdd(object):
 		self.query_site = {}
 		self.site_iterator = 0
 		self.mastersite = 0
+		self.masterserver = {}
 
 		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
@@ -86,6 +87,10 @@ class fdd(object):
 			self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
 			# self.createRemoteServersAndForeignSchemas()
+
+	def setMasterServer(self, userver):
+		self.masterserver = userver
+		pass
 
 	def addServer(self, userver):
 		# add server to the list of sites
@@ -244,7 +249,7 @@ class fdd(object):
 		Not going to work for average for the time being as it involves changing the query
 		For average every avg should be replaced by sum and count and at the time
 		of aggregation should have the original query as well
-		Should return a list of tuples which can be printed as is.
+		Should return a list of tuples which can be printed as is
 		"""
 		# First find if the query has group by, if yes then call aggregate group by
 		# otherwise check if the select has aggregate functions if yes then call aggregate select functions
