@@ -471,7 +471,7 @@ class fdd(object):
 							overallValList[i] = pgSum(overallValList[i],record[i])
 		import operator
 		a = [ y for x, y in sorted(overallValList.items(), key=operator.itemgetter(0) )]
-		return(list(tuple(a)))
+		return([list(tuple(a))])
 
 	def aggregateBasic(self, res):
 		finalResult = []
