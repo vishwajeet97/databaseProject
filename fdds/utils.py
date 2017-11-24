@@ -3,7 +3,7 @@ import subprocess
 import pickle
 
 global debug
-debug = False
+debug = True
 
 class parser(object):
 	"""docstring for parser"""
@@ -136,7 +136,6 @@ def changeAvgInQueryToSumCount(querys):
 	alterQuery = ''
 
 	index = 0
-	print(len(list_word))
 	while(index < len(list_word)):
 		# print("I came till here",index, list_word[index].lower(), list_word[index].lower() == "avg", list_word[index+1] == "(", list_word[index+3] == ")")
 		if list_word[index].lower() == "avg" and index+3 < len(list_word) and list_word[index+1] == "(" and list_word[index+3] == ")":

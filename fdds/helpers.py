@@ -439,7 +439,8 @@ class TabletController(object):
 
 		elif "DropStmt" in stmt.keys():
 
-			relsname = [ x["String"]["str"] for x in stmt["DropStmt"]["objects"][0] ]
+			# printer("Debug", str(stmt["DropStmt"]["objects"]))
+			relsname = [ x[0]["String"]["str"] for x in stmt["DropStmt"]["objects"] ]
 			printer("Debug", "Dropping the following tables: " + str(relsname))
 			retmap = {}
 			for site in self.siteList:

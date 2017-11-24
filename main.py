@@ -81,6 +81,7 @@ def fRun(args):
 
 	try:
 		for x in commands:
+			print(x)
 			args = cmdparser.parse_args(x.split(' '))
 			args.func(args)
 	except Exception as e:

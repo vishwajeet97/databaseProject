@@ -186,7 +186,6 @@ class fdd(object):
 		try:
 			thread.start()
 			res = thread.join()
-			print(res)
 		except Exception as e:
 			printer("Error", e)
 		else:

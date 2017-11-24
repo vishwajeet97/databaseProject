@@ -1,0 +1,33 @@
+master localhost 5555 postgres divya
+add localhost 5860 postgres divya
+add localhost 5861 postgres divya
+add localhost 5862 postgres divya
+execute create table student (id varchar primary key, name varchar, age numeric(3,0));
+execute create table instructor (id varchar primary key, inst_name varchar, phone_number numeric(10,0));
+execute create table employee (id varchar primary key, emp_name varchar, salary numeric(6,0));
+execute delete from student;
+execute delete from instructor;
+execute delete from employee;
+execute insert into student values ('1000', 'Henry', 20);
+execute insert into student values ('1001', 'Jules', 30);
+execute insert into student values ('1002', 'Mary', 40);
+execute insert into student values ('1003', 'Vivian', 25);
+execute insert into student values ('1004', 'Vikram', 45);
+execute insert into student values ('1005', 'Sam', 22);
+execute insert into student values ('1006', 'Neville', 28);
+execute insert into instructor values ('1000', 'Varshith', 202344432);
+execute insert into instructor values ('1001', 'Vishwajeet', 3034322332);
+execute insert into instructor values ('1002', 'Divya', 252453540);
+execute insert into instructor values ('1003', 'Madhav', 45434525);
+execute insert into instructor values ('1007', 'Ajay', 423545232);
+execute insert into instructor values ('1008', 'Vijay', 244554352);
+execute insert into instructor values ('1009', 'Ram', 25235438);
+execute insert into employee values ('1000', 'Name1', 20000);
+execute insert into employee values ('1001', 'Name2', 30000);
+execute insert into employee values ('1002', 'Name3', 250000);
+execute insert into employee values ('1003', 'Name4', 45000);
+execute insert into employee values ('1010', 'Name5', 42000);
+execute insert into employee values ('1011', 'Name6', 65000);
+execute insert into employee values ('1012', 'Name7', 25235);
+execute insert into employee values ('1007', 'Name8', 85000);
+execute insert into employee values ('1008', 'Name9', 43343);
