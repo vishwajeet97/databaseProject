@@ -4,7 +4,7 @@ import hashlib
 import random
 
 from .utils import changeRelNameInQuery as crn
-from .utils import getRelationNameListR
+from .utils import getRelationNameListR, printer
 
 NTABLETS = 20
 
@@ -72,10 +72,6 @@ class TabletController(object):
 	def setMetaData(self, data):
 		self.schema_data = data[0]
 		self.master_map = data[1]
-		print("master_map")
-		print(self.master_map)
-		print("site list ")
-		print(self.siteList)
 		
 		'''self.site_tablet_tupleCt = {site: {} for site in self.siteList}
 		print("initial site_tablet_tupleCt: ");
@@ -209,8 +205,9 @@ class TabletController(object):
 		for d in from_list:
 			relations.extend(getRelationNameListR(d))
 
-		joinQuery += "with "
+		relations = list(set(relations))
 
+		joinQuery += "with "
 		for relation in relations:
 			
 			joinQuery += relation + " as ("
@@ -236,7 +233,7 @@ class TabletController(object):
 		# append qstring
 		joinQuery += qstring
 
-		print("Join Query Build: ", relations, joinQuery)
+		printer("Debug", "Join Query Build: " + str(relations) + str(joinQuery))
 		return joinQuery
 
 	def getSiteQueryMapping(self, stmt, qstring):
@@ -246,38 +243,27 @@ class TabletController(object):
 		# return the (site, query)
 
 		relNameList = self.getRelName(stmt)
-		print(relNameList)
-		print("master map")
-		print(self.master_map)
 		default = {}
-		print("siteList")
 		for site in self.siteList:
 			default[site] = []
-		print(self.siteList)
 
 		for i in range(0, self.tablets):
 			qr = qstring
-			for relname in relNameList:
+			for relname in list(set(relNameList)):
 				qr = crn(qr, relname, relname + "_" + str(i))
 			for relName in relNameList:
 				si = self.master_map[relname][i]
 				default[si].append(qr)
 
-		# print("default")
-		print(default)
-
 		aggreg_default = {}
 		aggreg_default[self.mastersite] = []
 
-		print("aggreg_default")
-		print(aggreg_default)
-
 		if "InsertStmt" in stmt.keys():
 			relname = stmt["InsertStmt"]["relation"]["RangeVar"]["relname"]
-			valList = stmt["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"];
+			valList = stmt["InsertStmt"]["selectStmt"]["SelectStmt"]["valuesLists"]
 			# assume valList contains only one list
 			if len(valList) != 1:
-				print("Multiple values cannot be inserted")
+				printer("Error", "Multiple values cannot be inserted at once")
 				return default
 			
 			primary_key_attrs = self.schema_data["pkmetadata"][relname] # list of (index, attr_name) tuples
@@ -305,19 +291,17 @@ class TabletController(object):
 					val_index += 1
 
 				pk_attr_val.sort()  # so that different order of attributes in query will return same tablet_id
-				print(pk_attr_val)
 				pk_attr_str = ""
 				pk_attr_names, pk_attr_values = zip(*pk_attr_val)
 				for v in pk_attr_values:
 					pk_attr_str += str(v)
 
-				print("pk attr string ", pk_attr_str)
 				if pk_attr_str == "":
 					tablet_id = random.randint(0, self.tablets - 1)
 				else:
 					tablet_id = self.hashFunction(pk_attr_str)
 
-			print("tablet id: ", tablet_id)
+			printer("Debug", "tablet id: " + str(tablet_id))
 			ret = {}
 			site = self.master_map[relname][tablet_id]
 			ret[site] = [crn(qstring, relname, relname + "_" + str(tablet_id))]
@@ -337,9 +321,7 @@ class TabletController(object):
 				return default
 
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
-			print("primary_key_attrs")
-			print(primary_key_attrs)
-			
+
 			if len(primary_key_attrs) == 0:
 				return default
 
@@ -370,7 +352,7 @@ class TabletController(object):
 						return default
 					else:
 						tablet_id = self.hashFunction(pk_attr_str)
-						print("tablet id: ", tablet_id)
+						printer("Debug", "tablet id: " + str(tablet_id))
 						retmap = {}
 						for site in self.siteList:
 							retmap[site] = []
@@ -398,7 +380,6 @@ class TabletController(object):
 					arg_attr.append(column)
 					compOp = a["A_Expr"]["name"][0]["String"]["str"]
 					if compOp != "=":
-						print("no =")
 						return default
 
 				for pk in primary_key_name:
@@ -420,15 +401,13 @@ class TabletController(object):
 							#pk_attr_str += str(v)
 
 				pk_attr_val.sort()  # so that different order of attributes in query will return same tablet_id
-				print(pk_attr_val)
 				pk_attr_str = ""
 				pk_attr_names, pk_attr_values = zip(*pk_attr_val)
 				for v in pk_attr_values:
 					pk_attr_str += str(v)
 
-				print("pk_attr_str " + pk_attr_str)
 				tablet_id = self.hashFunction(pk_attr_str)
-				print("tablet id: ", tablet_id)
+				printer("Debug", "tablet id: " + str(tablet_id))
 				retmap = {}
 				for site in self.siteList:
 					retmap[site] = []
@@ -461,6 +440,7 @@ class TabletController(object):
 		elif "DropStmt" in stmt.keys():
 
 			relsname = [ x["String"]["str"] for x in stmt["DropStmt"]["objects"][0] ]
+			printer("Debug", "Dropping the following tables: " + str(relsname))
 			retmap = {}
 			for site in self.siteList:
 				retmap[site] = []
@@ -476,16 +456,15 @@ class TabletController(object):
 				del self.schema_data["pkmetadata"][rel]
 
 			# set tuple counts of dropped tables to 0
-			for reln, mapping in self.master_map.items():
+			'''for reln, mapping in self.master_map.items():
 				for relName in relsname:
 					for tablet_id, site in mapping.items():
-						self.site_tablet_tupleCt[site][relName][tablet_id] = 0
+						self.site_tablet_tupleCt[site][relName][tablet_id] = 0'''
 
 			# return default
 			return retmap
 
 		else:
-			print(default)
 			return default
 		
 	def createTabletMappingForRelation(self, tree, masterserver):
@@ -498,17 +477,12 @@ class TabletController(object):
 		self.master_map[relName] = mapping
 
 		# insert into tablet_info table
-		pwd = ''
-		if masterserver["password"] is not None:
-			pwd = masterserver["password"]
-		update_tablet_stmt = "insert into tablet_info values ('%s', %d, '%s', '%s', '%s', '%s', '%s', %d)"
+		update_tablet_stmt = "insert into tablet_info values ('%s', %d, %d, %d)"
 		for tablet_num, site_index in mapping.items():
 			server = self.siteDict[site_index]
-			thread = QueryDeploy(masterserver, update_tablet_stmt%(relName, tablet_num, server["host"], server["port"], server["database"], server["username"], pwd, 0))	
+			thread = QueryDeploy(masterserver, update_tablet_stmt%(relName, tablet_num, site_index, 0))	
 			thread.start()
 			thread.join()
-
-		print(self.master_map)
 
 		for tablet_id, site in mapping.items():
 			self.site_tablet_tupleCt[site] = {}

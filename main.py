@@ -36,14 +36,6 @@ def fDispServer(args):
 def fMasterServer(args):
 	userver = psr.createServerFromArgs(args)
 	db.setMasterServer(userver)
-	check_metadata = "select relname from pg_class where relname='site_info'"
-	thread = QueryDeploy(db.masterserver, check_metadata)
-	thread.start()
-	res = thread.join()
-	if len(res) == 0:
-		db.createMetadataSchema()
-	else:
-		db.initializeMetadata()
 	pass
 
 def fAddServer(args):

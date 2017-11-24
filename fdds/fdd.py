@@ -15,21 +15,16 @@ class fdd(object):
 		self.site_dict = {}
 		self.query_site = {}
 		self.site_iterator = 0
-		self.mastersite = 0
+		self.mastersite = None
 		self.masterserver = {}
 
 		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 
-		# self.schema_data = {}
-
-		# self.schema_data["stmts"] = list()
-		# self.schema_data["pkmetadata"] = {
-
 	def createMetadataSchema(self):
-		create_site_info = "create table site_info (host varchar, port varchar, database varchar, username varchar, password varchar, primary key(host, port, database, username, password))"
+		create_site_info = "create table site_info (site_id integer, host varchar, port varchar, database varchar, username varchar, password varchar, primary key(site_id))"
 		create_relations = "create table relations (relation_name varchar primary key)"
 		create_relation_info = "create table relation_info (attribute_name varchar, attribute_index integer, relation_name varchar, is_pk boolean, primary key(attribute_name, relation_name), foreign key(relation_name) references relations on delete cascade)"
-		create_tablet_info = "create table tablet_info (relation_name varchar, tablet_number integer, host varchar, port varchar, database varchar, username varchar, password varchar, tuple_count integer, primary key(relation_name, tablet_number), foreign key(relation_name) references relations on delete cascade, foreign key(host, port, database, username, password) references site_info)"
+		create_tablet_info = "create table tablet_info (relation_name varchar, tablet_number integer, site_id integer, tuple_count integer, primary key(relation_name, tablet_number), foreign key(relation_name) references relations on delete cascade, foreign key(site_id) references site_info on delete cascade)"
 		create_stmt_list  = [create_site_info, create_relations, create_relation_info, create_tablet_info]
 		for stmt in create_stmt_list:
 			with ppg.connect(
@@ -42,7 +37,6 @@ class fdd(object):
 				try:
 					with conn.cursor() as cur:
 						cur.execute(stmt)
-						res = cur.fetchall()
 				except ppg.Error as e:
 					printer("Metadata Creation Error", e)
 				except ppg.ProgrammingError as e:
@@ -54,11 +48,11 @@ class fdd(object):
 		thread.start()
 		sites = thread.join() # list of tuples
 		# check:
-		site_index_dict = {}
-		for i, site in enumerate(sites):
-			server_dict = dict(zip(["host", "port", "database", "username", "password"], list(site)))
-			self.site_dict[i] = server_dict
-			site_index_dict[site] = i
+	
+		for site in sites:
+			site_id = site[0]
+			server_dict = dict(zip(["host", "port", "database", "username", "password"], list(site[1:])))
+			self.site_dict[site_id] = server_dict
 
 		get_relations = "select * from relations"
 		thread = QueryDeploy(self.masterserver, get_relations)
@@ -76,13 +70,12 @@ class fdd(object):
 		master_map = {}
 		for reln in relns:
 			master_map[reln[0]]={}
-			get_tablet_site = "select tablet_number, host, port, database, username, password from tablet_info where relation_name = '%s'"
+			get_tablet_site = "select tablet_number, site_id from tablet_info where relation_name = '%s'"
 			thread = QueryDeploy(self.masterserver, get_tablet_site%(reln[0]))
 			thread.start()
 			tablet_site = thread.join()
 			for t in tablet_site:
-				site_index = site_index_dict[t[1:]]
-				master_map[reln[0]][t[0]] = site_index
+				master_map[reln[0]][t[0]] = t[1]
 
 		# initialize tablet controller
 		data = {}
@@ -93,11 +86,11 @@ class fdd(object):
 		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
 		self.tbc.setMetaData(data)
 
-		print("initializeMetadata")
-		print(self.site_dict)
-		print(relns)
-		print(pk_dict)
-		print(master_map)
+		printer("Debug", "initializeMetadata")
+		printer("Debug", self.site_dict)
+		printer("Debug", relns)
+		printer("Debug", pk_dict)
+		printer("Debug", master_map)
 
 		
 
@@ -112,6 +105,9 @@ class fdd(object):
 		print(tabulate(table, headers=colName, tablefmt="psql"))
 
 	def createRemoteServersAndForeignSchemas(self):
+
+		if len(list(self.site_dict.keys())) <= 1:
+			return
 
 		masterquery = ""
 		snfdw = "postgres_fdw"
@@ -159,50 +155,70 @@ class fdd(object):
 		# 		perm == False
 
 		# if perm:
+		metadata = self.tbc.getMetaData()
 		del self.tbc
 		self.tbc = TabletController(list(self.site_dict.keys()), self.site_dict)
+		self.tbc.setMetaData(metadata)
 		self.createRemoteServersAndForeignSchemas()
 
 	def setMasterServer(self, userver):
 		self.masterserver = userver
+		check_metadata = "select relname from pg_class where relname='site_info'"
+		thread = QueryDeploy(self.masterserver, check_metadata)
+		thread.start()
+		res = thread.join()
+		if len(res) == 0:
+			self.createMetadataSchema()
+		else:
+			self.initializeMetadata()
 		pass
 
 	def addServer(self, userver):
 		# add server to the list of sites
 		self.site_iterator = len(self.site_dict.items())
-		self.site_dict[self.site_iterator] = userver
-		self.site_iterator += 1
 		if len(userver["password"]) > 0:
-			update_site_info = "insert into site_info values ('%s', %s, '%s', '%s', '%s')"
-			thread = QueryDeploy(self.masterserver, update_site_info%(userver["host"], userver["port"], userver["database"], userver["username"], userver["password"]))
+			update_site_info = "insert into site_info values (%d, '%s', %s, '%s', '%s', '%s')"
+			thread = QueryDeploy(self.masterserver, update_site_info%(self.site_iterator, userver["host"], userver["port"], userver["database"], userver["username"], userver["password"]))
 		else:
-			update_site_info = "insert into site_info values ('%s', %s, '%s', '%s', '')"
-			thread = QueryDeploy(self.masterserver, update_site_info%(userver["host"], userver["port"], userver["database"], userver["username"]))
+			update_site_info = "insert into site_info values (%d, '%s', %s, '%s', '%s', '')"
+			thread = QueryDeploy(self.masterserver, update_site_info%(self.site_iterator, userver["host"], userver["port"], userver["database"], userver["username"]))
 
-		thread.start()
-		res = thread.join()
+		try:
+			thread.start()
+			res = thread.join()
+			print(res)
+		except Exception as e:
+			printer("Error", e)
+		else:
+			self.site_dict[self.site_iterator] = userver
+
+		self.mastersite = min(list(self.site_dict.keys()))
 		# update the tablet controller
 		self.reinitialiseTBC()
 
 	def addConfig(self, uinfo):
-		for server in uinfo[1]:
+		'''for server in uinfo[1]:
 			self.addServer(server)
 
 		self.tbc.setMetaData(uinfo[0])
 
 		printer("Debug", "List of sites: " +  str(uinfo[1]))
-		printer("Debug", "Schema loaded: " + str(uinfo[0]))
+		printer("Debug", "Schema loaded: " + str(uinfo[0]))'''
+		pass
 
 	def getConfig(self):
 		return [self.tbc.getMetaData(), list(self.site_dict.values())]
 
 	def deleteServer(self, userver):
-		print(userver)
 		# delete server from the list of sites
 		for key in self.site_dict.keys():
 			server = self.site_dict[key]
 			if server["host"] == userver["host"] and server["port"] == userver["port"] and server["database"] == userver["database"]:
 				del self.site_dict[key]
+				if key == self.mastersite and len(list(self.site_dict.keys())) > 0:
+					self.mastersite = min(list(self.site_dict.keys()))
+				else:
+					self.mastersite = None
 				break
 
 		update_site_info = "delete from site_info where host = '%s' and port = '%s' and database = '%s'"
