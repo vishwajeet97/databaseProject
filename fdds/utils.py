@@ -1,9 +1,9 @@
 import psycopg2 as ppg
 import subprocess
 import pickle
-import re
 
-debug = True
+global debug
+debug = False
 
 class parser(object):
 	"""docstring for parser"""

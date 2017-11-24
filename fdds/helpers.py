@@ -6,6 +6,8 @@ import random
 from .utils import changeRelNameInQuery as crn
 from .utils import getRelationNameListR
 
+NTABLETS = 20
+
 class QueryDeploy(threading.Thread):
 	"""docstring for QueryDeploy"""
 	def __init__(self, site, query):
@@ -18,6 +20,7 @@ class QueryDeploy(threading.Thread):
 
 		colName = []
 		res = []
+		colName = []
 		# run the query
 		with ppg.connect(
 				host=self.site["host"],
@@ -44,8 +47,6 @@ class QueryDeploy(threading.Thread):
 
 	def returnDescription(self):
 		return self.colName
-
-NTABLETS = 20
 
 class TabletController(object):
 	"""docstring for TabletController"""

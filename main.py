@@ -13,6 +13,7 @@ masterServerHelpString = "Sets the master server to the argument"
 delServerHelpString = "Disintegrates the given database from the system"
 freezeSchemaString = "Freezes the schema; Can't perform any schema operations later"
 executeQueryHelpString = "Executes the given query on the integrated system"
+debugHelpString = "Turn debugging on/off"
 runHelpString = "Runs commands in the script file specified"
 loadServersConfigHelpString = "Loads configurations of sites and schema details from the given file"
 saveServersConfigHelpString = "Saves configurations of sites and schema details in the given file"
@@ -75,6 +76,10 @@ def fExecuteQuery(args):
 	db.executeQuery(getStringFromArray(args.queryString))
 	pass
 	#usbv
+
+def fDebug(args):
+	import fdds.utils as utls
+	utls.debug = (args.mode == "True" or args.mode == "true")
 
 def fRun(args):
 	fname = args.scriptfilename
@@ -155,6 +160,10 @@ saveServersConfigParse.add_argument('filename')
 executeQueryParse = subparsers.add_parser('execute', description=executeQueryHelpString)
 executeQueryParse.set_defaults(func=fExecuteQuery)
 executeQueryParse.add_argument('queryString', nargs="+")
+
+debugParse = subparsers.add_parser('debug', description=debugHelpString)
+debugParse.set_defaults(func=fDebug)
+debugParse.add_argument('mode')
 
 runParse = subparsers.add_parser('run', description=runHelpString)
 runParse.set_defaults(func=fRun)
