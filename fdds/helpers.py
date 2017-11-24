@@ -16,6 +16,7 @@ class QueryDeploy(threading.Thread):
 
 	def run(self):
 
+		colName = []
 		res = []
 		# run the query
 		with ppg.connect(
@@ -114,14 +115,17 @@ class TabletController(object):
 					pknamelist = [ x["String"]["str"] for x in item["Constraint"]["keys"] ]
 					pkdone = True
 
+		attr_array = []
 		count = 0
 		for item in tbelts:
 			if "ColumnDef" in item.keys():
+				index_name = (count, item["ColumnDef"]["colname"])
+				attr_array.append(index_name)
+
 				if pkdone:
 					if item["ColumnDef"]["colname"] in pknamelist:
 						index_name = (count, item["ColumnDef"]["colname"])
 						pkarray.append(index_name)
-
 				else:
 					if "constraints" in item["ColumnDef"].keys():
 						for cons in item["ColumnDef"]["constraints"]:
@@ -139,13 +143,20 @@ class TabletController(object):
 		thread.start()
 		thread.join()
 
-		# insert only primary key attributes into relation_info
+		# insert primary key attributes into relation_info
 
+		insert_attr = "insert into relation_info values ('%s', %d, '%s', %s)"
 		for pk in pkarray:
-			insert_attr = "insert into relation_info values ('%s', %d, '%s', %s)"
 			thread = QueryDeploy(masterserver, insert_attr%(pk[1], pk[0], relname, "true"))
 			thread.start()
 			thread.join()
+
+		# insert other attributes
+		for attr in attr_array:
+			if attr not in pkarray:
+				thread = QueryDeploy(masterserver, insert_attr%(attr[1], attr[0], relname, "false"))
+				thread.start()
+				thread.join()
 
 		self.createTabletMappingForRelation(stmt["CreateStmt"], masterserver)
 
@@ -325,6 +336,12 @@ class TabletController(object):
 				return default
 
 			primary_key_attrs = self.schema_data["pkmetadata"][relname]
+			print("primary_key_attrs")
+			print(primary_key_attrs)
+			
+			if len(primary_key_attrs) == 0:
+				return default
+
 			primary_key_index, primary_key_name = zip(*primary_key_attrs)
 
 			whereClause = stmt["SelectStmt"]["whereClause"]
@@ -382,8 +399,6 @@ class TabletController(object):
 					if compOp != "=":
 						print("no =")
 						return default
-
-
 
 				for pk in primary_key_name:
 					if pk not in arg_attr:
